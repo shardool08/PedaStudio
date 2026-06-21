@@ -38,6 +38,7 @@ import com.tippingpoint.pedastudio.data.NextPlanAction
 import com.tippingpoint.pedastudio.data.PlanFeedback
 import com.tippingpoint.pedastudio.data.PlanProgressHelper
 import com.tippingpoint.pedastudio.data.PlanStorage
+import com.tippingpoint.pedastudio.data.TeacherAccount
 import com.tippingpoint.pedastudio.data.UserPreferences
 import com.tippingpoint.pedastudio.i18n.AppStrings
 import com.tippingpoint.pedastudio.i18n.LocalAppStrings
@@ -62,10 +63,13 @@ fun LessonDetailScreen(
     curriculum: CurriculumRepository,
     planStorage: PlanStorage,
     firestore: FirestoreRepository,
+    teacherAccount: TeacherAccount,
     plansRevision: Int,
     onBack: () -> Unit,
-    onQuickPlan: (String, Int) -> Unit,
+    onQuickPlan: (String, Int, String, String) -> Unit,
     onViewPlan: (String, Int) -> Unit,
+    onWorksheet: (String, Int) -> Unit,
+    onUpgrade: () -> Unit,
     onProgressChanged: () -> Unit,
 ) {
     val s = LocalAppStrings.current
@@ -83,6 +87,7 @@ fun LessonDetailScreen(
     }
     var refreshKey by remember { mutableStateOf(0) }
     var feedbackDay by remember { mutableStateOf<Int?>(null) }
+    var reteachNotesDay by remember { mutableStateOf<Int?>(null) }
     var nextAction by remember { mutableStateOf<NextPlanAction?>(null) }
 
     val lessonStatus = remember(lessonId, plansRevision, refreshKey) {
@@ -170,7 +175,9 @@ fun LessonDetailScreen(
                                             onBack()
                                         }
                                         "continue" -> onViewPlan(action.lessonId, action.day)
-                                        else -> onQuickPlan(action.lessonId, action.day)
+                                        "practice" -> onQuickPlan(action.lessonId, action.day, "practice", "")
+                                        "reteach" -> reteachNotesDay = action.day
+                                        else -> onQuickPlan(action.lessonId, action.day, "", "")
                                     }
                                 },
                                 modifier = Modifier.weight(1f),
@@ -193,10 +200,15 @@ fun LessonDetailScreen(
                     s = s,
                     dayInfo = dayInfo,
                     meta = dayMetas[dayInfo.day] ?: DayPlanMeta(DayPlanStatus.NOT_STARTED),
-                    onPlanDay = { onQuickPlan(lessonId, dayInfo.day) },
+                    worksheetsEnabled = teacherAccount.hasFeature { it.worksheets },
+                    onPlanDay = { onQuickPlan(lessonId, dayInfo.day, "", "") },
                     onViewPlan = { onViewPlan(lessonId, dayInfo.day) },
+                    onWorksheet = {
+                        if (teacherAccount.hasFeature { it.worksheets }) onWorksheet(lessonId, dayInfo.day)
+                        else onUpgrade()
+                    },
                     onMarkCompleted = { feedbackDay = dayInfo.day },
-                    onRePlan = { onQuickPlan(lessonId, dayInfo.day) },
+                    onRePlan = { onQuickPlan(lessonId, dayInfo.day, "", "") },
                 )
             }
         }
@@ -215,6 +227,25 @@ fun LessonDetailScreen(
                     val day = feedbackDay ?: return@FeedbackSheetContent
                     feedbackDay = null
                     submitFeedback(day, feedback)
+                },
+            )
+        }
+    }
+
+    if (reteachNotesDay != null) {
+        val reteachSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { reteachNotesDay = null },
+            sheetState = reteachSheetState,
+            containerColor = Color.White,
+        ) {
+            ReteachNotesSheetContent(
+                s = s,
+                onSubmit = { notes ->
+                    val day = reteachNotesDay ?: return@ReteachNotesSheetContent
+                    reteachNotesDay = null
+                    nextAction = null
+                    onQuickPlan(lessonId, day, "reteach", notes)
                 },
             )
         }
@@ -243,8 +274,10 @@ private fun DayProgressCard(
     s: AppStrings,
     dayInfo: DayInfo,
     meta: com.tippingpoint.pedastudio.data.DayPlanMeta,
+    worksheetsEnabled: Boolean,
     onPlanDay: () -> Unit,
     onViewPlan: () -> Unit,
+    onWorksheet: () -> Unit,
     onMarkCompleted: () -> Unit,
     onRePlan: () -> Unit,
 ) {
@@ -314,6 +347,13 @@ private fun DayProgressCard(
                             modifier = Modifier.weight(1f),
                         )
                     }
+                    OutlinedButton(onClick = onWorksheet, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            if (worksheetsEnabled) s.worksheetBtn else "${s.worksheetBtn} · Prime",
+                            fontSize = 13.sp,
+                            color = if (worksheetsEnabled) AccentTeal else PrimarySteel.copy(0.6f),
+                        )
+                    }
                 }
                 DayPlanStatus.COMPLETED -> {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -324,9 +364,48 @@ private fun DayProgressCard(
                             Text(s.rePlan, fontSize = 13.sp, color = PrimarySteel)
                         }
                     }
+                    OutlinedButton(onClick = onWorksheet, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            if (worksheetsEnabled) s.worksheetBtn else "${s.worksheetBtn} · Prime",
+                            fontSize = 13.sp,
+                            color = if (worksheetsEnabled) AccentTeal else PrimarySteel.copy(0.6f),
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun ReteachNotesSheetContent(
+    s: AppStrings,
+    onSubmit: (String) -> Unit,
+) {
+    var notes by remember { mutableStateOf("") }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(s.reteachNotesTitle, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PrimaryDark)
+        Text(s.reteachNotesSub, fontSize = 13.sp, color = PrimarySteel.copy(0.7f))
+        com.tippingpoint.pedastudio.ui.components.OutlinedFormField(
+            value = notes,
+            onValueChange = { notes = it },
+            label = s.reteachNotesHint,
+            singleLine = false,
+        )
+        PrimaryButton(
+            text = s.continueBtn,
+            onClick = {
+                if (notes.isNotBlank()) onSubmit(notes.trim())
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = notes.isNotBlank(),
+        )
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(bottom = 24.dp))
     }
 }
 

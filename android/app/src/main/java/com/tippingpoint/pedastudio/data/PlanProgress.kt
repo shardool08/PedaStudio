@@ -48,6 +48,12 @@ data class NextPlanAction(
     val day: Int,
 )
 
+data class PendingHomeAction(
+    val completedDay: Int,
+    val feedback: PlanFeedback,
+    val nextAction: NextPlanAction,
+)
+
 object PlanProgressHelper {
     fun getLessonStatus(lessonId: String, totalDays: Int, planStorage: PlanStorage): LessonProgressStatus {
         if (totalDays <= 0) return LessonProgressStatus.NOT_STARTED
@@ -83,6 +89,25 @@ object PlanProgressHelper {
             if (status == DayPlanStatus.PLANNED || status == DayPlanStatus.COMPLETED) return d
         }
         return null
+    }
+
+    /** First day marked planned (not completed) with a saved plan — the live classroom session. */
+    fun getOngoingPlanDay(lessonId: String, totalDays: Int, planStorage: PlanStorage): Int? {
+        for (d in 1..totalDays) {
+            when (planStorage.getDayMeta(lessonId, d).status) {
+                DayPlanStatus.PLANNED -> if (planStorage.hasPlan(lessonId, d)) return d
+                DayPlanStatus.COMPLETED -> continue
+                DayPlanStatus.NOT_STARTED -> return null
+            }
+        }
+        return null
+    }
+
+    /** Day to open from home "Current plan" — ongoing session, else last useful saved plan. */
+    fun getCurrentPlanDay(lessonId: String, totalDays: Int, planStorage: PlanStorage): Int? {
+        getOngoingPlanDay(lessonId, totalDays, planStorage)?.let { return it }
+        return getActivePlanDay(lessonId, totalDays, planStorage)
+            ?.takeIf { planStorage.hasPlan(lessonId, it) }
     }
 
     /**
@@ -186,6 +211,53 @@ object PlanProgressHelper {
             lessonId = lessonId,
             day = day,
         )
+    }
+
+    /** Day to send to quick-plan when the teacher chooses Re-plan from home feedback. */
+    fun replanDayFor(completedDay: Int, action: NextPlanAction): Int = when (action.action) {
+        "practice", "reteach", "continue" -> action.day
+        else -> completedDay
+    }
+
+    /**
+     * After marking a day complete, surfaces the recommended follow-up on home until the teacher
+     * plans ahead, re-plans, continues, or dismisses.
+     */
+    fun getPendingHomeAction(lesson: LessonItem, planStorage: PlanStorage): PendingHomeAction? {
+        if (getOngoingPlanDay(lesson.id, lesson.days, planStorage) != null) return null
+
+        var completedDay: Int? = null
+        var completedAt = 0L
+        for (d in 1..lesson.days) {
+            val meta = planStorage.getDayMeta(lesson.id, d)
+            if (meta.status == DayPlanStatus.COMPLETED && meta.feedback != null && meta.completedAt >= completedAt) {
+                completedDay = d
+                completedAt = meta.completedAt
+            }
+        }
+        val day = completedDay ?: return null
+        if (planStorage.isHomeNextActionDismissed(lesson.id, day)) return null
+
+        val feedback = planStorage.getDayMeta(lesson.id, day).feedback ?: return null
+        val action = getNextAction(lesson.id, day, feedback, lesson.days)
+        if (!isHomeActionPending(lesson, action, planStorage)) return null
+        return PendingHomeAction(day, feedback, action)
+    }
+
+    fun isHomeActionPending(lesson: LessonItem, action: NextPlanAction, planStorage: PlanStorage): Boolean {
+        when (action.action) {
+            "next_day" -> {
+                if (action.day !in 1..lesson.days) return false
+                return planStorage.getDayMeta(lesson.id, action.day).status == DayPlanStatus.NOT_STARTED
+            }
+            "next_lesson" -> {
+                return getLessonStatus(lesson.id, lesson.days, planStorage) == LessonProgressStatus.COMPLETED
+            }
+            "practice", "reteach", "continue" -> {
+                return planStorage.getDayMeta(lesson.id, action.day).status == DayPlanStatus.COMPLETED
+            }
+        }
+        return false
     }
 
     fun statusIcon(status: DayPlanStatus): String = when (status) {

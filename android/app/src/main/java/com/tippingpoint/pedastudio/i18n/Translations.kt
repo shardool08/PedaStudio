@@ -8,20 +8,35 @@ object Translations {
         else -> EN
     }
 
-    val EN = AppStrings(
+    private val EN_COMMON = CommonStrings(
         chooseLanguage = "Choose your language",
         appLanguage = "App language",
         selectLanguage = "Select language",
         translationsComingSoon = "Full UI in all languages coming soon",
+        search = "Search…",
+        noMatches = "No matches found",
+        tapToSelect = "Tap to select",
+        chooseOne = "Choose one option",
+        continueBtn = "Continue",
+        goToHome = "Go to Home",
+        closeBtn = "Close",
+        dismiss = "Dismiss",
+        comingSoon = "Coming soon",
+        comingSoonBody = "Grades 1–5 English are available. More subjects coming later.",
+        lessonNotFound = "Lesson not found.",
+    )
+
+    private val EN_AUTH = AuthStrings(
         enterMobile = "Enter mobile number",
         sendOtp = "Send OTP",
         verifyOtp = "Verify OTP",
         otpPlaceholder = "6-digit OTP",
+    )
+
+    private val EN_REG = RegistrationStrings(
         registration = "Registration",
         step2 = "Step 2 of 3 · About you",
         step3 = "Step 3 of 3 · About your class",
-        continueBtn = "Continue",
-        goToHome = "Go to Home",
         yourName = "Your name",
         yourNameSub = "How should we address you in the app?",
         fullName = "Full name",
@@ -69,16 +84,16 @@ object Translations {
         selectInternet = "Select internet availability",
         printingAccess = "Printing access",
         selectPrinting = "Select printing availability",
-        chooseOne = "Choose one option",
-        search = "Search…",
-        noMatches = "No matches found",
-        tapToSelect = "Tap to select",
+    )
+
+    private val EN_NAV = NavStrings(
         navHome = "Home",
         navRoadmap = "Roadmap",
         navProfile = "Profile",
+    )
+
+    private val EN_HOME = HomeStrings(
         helloTeacher = "Hello, %s!",
-        comingSoon = "Coming soon",
-        comingSoonBody = "Grades 1–5 English are available. More subjects coming later.",
         setCurrentLesson = "Set your current lesson",
         setCurrentLessonBody = "Tap below to choose where you are in the textbook.",
         goToRoadmap = "Go to Roadmap →",
@@ -87,6 +102,29 @@ object Translations {
         planLessonSoon = "✨ Plan a lesson (coming soon)",
         tapLessonNow = "Tap the lesson you are teaching now",
         unitLabel = "Unit",
+        homePlanSub = "Co-create today's lesson",
+        homePlanSubProgress = "See day-wise progress",
+        homeScanSub = "Snap a textbook page",
+        homeOpenRoadmap = "Roadmap · worksheets · assessments",
+        homeUnitProgress = "Unit %d · %d/%d lessons planned",
+        homeCurrentPlan = "Current plan",
+        homeCurrentPlanDay = "Day %d of %d",
+        homeCurrentPlanFocus = "%s · %s",
+        homeCurrentPlanOpen = "Open saved plan",
+        homeCurrentPlanEmpty = "No saved plan yet — use Next up below",
+        homeCurrentLesson = "Current lesson",
+        homeNextUp = "Next up",
+        homeNextPlanSub = "Not planned yet · same topic",
+        homeNextPlanAction = "Co-create with AI",
+        homeAllDaysPlanned = "All days planned for this topic",
+        homeTlmKitHeadline = "Unit %d TLM kit",
+        homeTlmGapAlert = "%d of %d items missing — get these before class",
+        homeTlmReady = "Essentials ready for this unit",
+        homeTlmViewAll = "View full TLM list",
+        homeTlmScanHint = "Tip: scan a page to jump straight to planning with TLM gaps highlighted",
+    )
+
+    private val EN_PROFILE = ProfileStrings(
         profileTitle = "Profile",
         signOut = "Sign out",
         labelName = "Name",
@@ -100,6 +138,9 @@ object Translations {
         changeLanguage = "App language",
         accountSettings = "Account",
         saveProfile = "Save changes",
+    )
+
+    private val EN_PLAN = PlanStrings(
         planLesson = "Plan this lesson",
         flashcardsBtn = "Flashcards",
         quickPlanTitle = "Plan a lesson",
@@ -131,7 +172,6 @@ object Translations {
         fbCouldntFinish = "⏰ Couldn't finish",
         fbReadyForMore = "🚀 Ready for more",
         recommendedNext = "Recommended next step",
-        dismiss = "Dismiss",
         statusNotStarted = "Not started",
         statusPlanned = "Planned",
         statusInProgress = "In progress",
@@ -147,29 +187,171 @@ object Translations {
         addPracticeDay = "Add a practice day",
         reteachDay = "Re-teach this day",
         continueSamePlan = "Continue same plan",
+        planNextDayBtn = "Plan next day",
+        reteachNotesTitle = "What didn't work?",
+        reteachNotesSub = "A few words help us plan a simpler lesson for your class.",
+        reteachNotesHint = "e.g. new words were too hard, activity took too long…",
+        modeReteachBanner = "Re-teaching this day — we'll simplify based on your note.",
+        modePracticeBanner = "Extra practice day — same goal, new simpler activity.",
+        modeContinueBanner = "Continuing where you left off yesterday.",
         generatingStatusReading = "Reading your choices…",
         generatingStatusBuilding = "Building activities for your class…",
         generatingStatusTlm = "Checking classroom resources…",
         generatingStatusAlmost = "Almost ready…",
         generatingStatusDone = "Your plan is ready!",
-        lessonNotFound = "Lesson not found.",
-        closeBtn = "Close",
     )
 
-    val MR = EN.copy(
+    private val EN_TIER = TierStrings(
+        tierPlanTitle = "Your plan",
+        tierCurrentPlan = "Current plan",
+        tierPlansRemaining = "%d lesson plans left this month",
+        tierPlansUnlimited = "Unlimited lesson plans",
+        tierUpgradeHint = "Upgrade to Prime for unlimited plans, worksheets, and scan marking.",
+        tierGradeLocked = "Grade %d needs %s. Upgrade to unlock.",
+    )
+
+    private val EN_SUB = SubscriptionStrings(
+        subTitle = "Choose your plan",
+        subSubtitle = "Basic · Prime · Max",
+        subActive = "Active",
+        subBasicTagline = "Plan, assess, and track your class",
+        subPrimeTagline = "Unlimited plans and smart classroom tools",
+        subMaxTagline = "Lead your cluster with advanced reports",
+        subRenewsOn = "Renews on %s",
+        subMonthly = "Monthly",
+        subYearlySave = "Yearly (save more)",
+        subFreeForever = "Free",
+        subCurrentPlan = "Current plan",
+        subMostPopular = "Most popular",
+        subSubscribePrime = "Upgrade to Prime",
+        subSubscribeMax = "Upgrade to Max",
+        subContactUpgrade = "Contact us to upgrade",
+        subUpgrade = "Upgrade",
+        subManagePlan = "Manage plan",
+        subLoadError = "Could not load plans",
+        subPlanUnavailable = "Plan not available for this billing cycle",
+        subPaymentSuccess = "Welcome to %s! Your plan is active.",
+        subPaymentFailed = "Payment could not be completed",
+        subPaymentsOffline = "Online payment is being set up. Contact us for pilot access or school billing.",
+        subWhatsAppSupport = "WhatsApp support",
+        subWhatsAppPrefill = "Hi, I want to upgrade my PedaStudio plan.",
+        subSaveInr = "Save ₹%d vs monthly",
+    )
+
+    private val EN_SCAN = ScanStrings(
+        scanTitle = "Scan textbook",
+        scanBtn = "Scan",
+        scanSubtitle = "Pick a page photo",
+        scanPickPhoto = "Choose photo from gallery",
+        scanAnalyze = "Analyze page",
+        scanAnalyzing = "Analyzing…",
+        scanError = "Could not analyze page",
+        scanImageError = "Could not read photo",
+        scanLocked = "Textbook scan needs Prime. Upgrade to scan pages and get smart actions.",
+        scanResultTitle = "Page detected",
+        scanResultsTitle = "Page scanned — next steps",
+        scanOpenCamera = "Open camera",
+        scanCameraHint = "Point at a textbook page. We'll detect the lesson and suggest plan, worksheet, and TLM.",
+        scanCameraCancelled = "Camera closed. Tap below to try again.",
+        scanCaptureAgain = "Scan another page",
+        scanCreatePlan = "Create lesson plan",
+        scanNextSteps = "What would you like to do?",
+        scanVocabulary = "Vocabulary spotted",
+        scanSuggested = "Suggested next steps",
+    )
+
+    private val EN_WORKSHEET = WorksheetStrings(
+        worksheetBtn = "Worksheet",
+        worksheetTitle = "Worksheet",
+        worksheetLocked = "AI worksheets need Prime.",
+        worksheetError = "Could not generate worksheet",
+        worksheetRetry = "Try again",
+        worksheetShare = "Share / print",
+        worksheetTeacherNotes = "Teacher notes",
+    )
+
+    private val EN_TLM = TlmStrings(
+        tlmKitBtn = "TLM kit",
+        tlmKitTitle = "TLM procurement",
+        tlmKitUnit = "This unit",
+        tlmKitYear = "Full year",
+        tlmKitLocked = "TLM kit lists need your Basic plan or higher.",
+        tlmKitYearLocked = "Full year list needs Prime.",
+        tlmKitEssential = "Essential",
+        tlmKitSummary = "%d of %d items in your classroom",
+        tlmKitShare = "Share procurement list",
+    )
+
+    private val EN_ASSESSMENT = AssessmentStrings(
+        assessmentBtn = "Assess",
+        assessmentHubTitle = "Assessments",
+        assessmentHubSub = "Grade %d English",
+        assessmentBaseline = "Baseline",
+        assessmentBaselineDesc = "Start-of-year FLN and competency check.",
+        assessmentEndline = "Endline",
+        assessmentEndlineDesc = "End-of-year attainment check.",
+        assessmentUnitTests = "Unit tests",
+        assessmentUnitTestsDesc = "Record scores after each assessment window.",
+        assessmentEnterScores = "Enter scores",
+        assessmentUpdateScores = "Update scores",
+        assessmentEntryTitle = "Record scores",
+        assessmentScoreLabel = "Class meeting benchmark",
+        assessmentScoreHint = "Rough % of students who met the unit/competency goal.",
+        assessmentSaveError = "Could not save scores",
+        assessmentLoadError = "Could not load assessment data",
+        assessmentRetry = "Try again",
+    )
+
+    private val EN_ROADMAP = RoadmapStrings(
+        roadmapUnitTestSub = "Unit %d · %s",
+    )
+
+    val EN = AppStrings(
+        common = EN_COMMON,
+        auth = EN_AUTH,
+        reg = EN_REG,
+        nav = EN_NAV,
+        home = EN_HOME,
+        profile = EN_PROFILE,
+        plan = EN_PLAN,
+        tier = EN_TIER,
+        subscription = EN_SUB,
+        scan = EN_SCAN,
+        worksheet = EN_WORKSHEET,
+        tlm = EN_TLM,
+        assessment = EN_ASSESSMENT,
+        roadmap = EN_ROADMAP,
+    )
+
+    private val MR_COMMON = EN_COMMON.copy(
         chooseLanguage = "तुमची भाषा निवडा",
         appLanguage = "अॅप भाषा",
         selectLanguage = "भाषा निवडा",
         translationsComingSoon = "लवकरच सर्व भाषांमध्ये पूर्ण UI",
+        search = "शोधा…",
+        noMatches = "काही सापडले नाही",
+        tapToSelect = "निवडण्यासाठी टॅप करा",
+        chooseOne = "एक पर्याय निवडा",
+        continueBtn = "पुढे जा",
+        goToHome = "मुख्यपृष्ठावर जा",
+        closeBtn = "बंद करा",
+        dismiss = "बंद करा",
+        comingSoon = "लवकरच",
+        comingSoonBody = "इयत्ता १–५ इंग्रजी उपलब्ध. अधिक विषय लवकरच.",
+        lessonNotFound = "पाठ सापडला नाही.",
+    )
+
+    private val MR_AUTH = EN_AUTH.copy(
         enterMobile = "मोबाइल नंबर टाका",
         sendOtp = "OTP पाठवा",
         verifyOtp = "OTP तपासा",
         otpPlaceholder = "६-अंकी OTP",
+    )
+
+    private val MR_REG = EN_REG.copy(
         registration = "नोंदणी",
         step2 = "पायरी २/३ · तुमच्याबद्दल",
         step3 = "पायरी ३/३ · तुमच्या वर्गाबद्दल",
-        continueBtn = "पुढे जा",
-        goToHome = "मुख्यपृष्ठावर जा",
         yourName = "तुमचे नाव",
         yourNameSub = "अॅपमध्ये तुम्हाला कसे हाक मारावे?",
         fullName = "पूर्ण नाव",
@@ -217,16 +399,16 @@ object Translations {
         selectInternet = "इंटरनेट उपलब्धता निवडा",
         printingAccess = "प्रिंटिंग",
         selectPrinting = "प्रिंटिंग उपलब्धता निवडा",
-        chooseOne = "एक पर्याय निवडा",
-        search = "शोधा…",
-        noMatches = "काही सापडले नाही",
-        tapToSelect = "निवडण्यासाठी टॅप करा",
+    )
+
+    private val MR_NAV = EN_NAV.copy(
         navHome = "मुख्यपृष्ठ",
         navRoadmap = "रोडमॅप",
         navProfile = "प्रोफाइल",
+    )
+
+    private val MR_HOME = EN_HOME.copy(
         helloTeacher = "नमस्कार, %s!",
-        comingSoon = "लवकरच",
-        comingSoonBody = "इयत्ता १–५ इंग्रजी उपलब्ध. अधिक विषय लवकरच.",
         setCurrentLesson = "सध्याचा पाठ निवडा",
         setCurrentLessonBody = "पाठ्यपुस्तकात तुम्ही कुठे आहात ते निवडा.",
         goToRoadmap = "रोडमॅप →",
@@ -235,6 +417,29 @@ object Translations {
         planLessonSoon = "✨ पाठ योजना (लवकरच)",
         tapLessonNow = "आत्ता शिकवत असलेला पाठ टॅप करा",
         unitLabel = "घटक",
+        homePlanSub = "आजचा पाठ एकत्र तयार करा",
+        homePlanSubProgress = "दिवसानुसार प्रगती पहा",
+        homeScanSub = "पाठ्यपुस्तकाचे पान फोटो करा",
+        homeOpenRoadmap = "रोडमॅप · worksheets · मूल्यांकन",
+        homeUnitProgress = "घटक %d · %d/%d धडे planned",
+        homeCurrentPlan = "सध्याची योजना",
+        homeCurrentPlanDay = "दिवस %d / %d",
+        homeCurrentPlanFocus = "%s · %s",
+        homeCurrentPlanOpen = "जतन केलेली योजना उघडा",
+        homeCurrentPlanEmpty = "अजून योजना नाही — खाली Next up वापरा",
+        homeCurrentLesson = "सध्याचा धडा",
+        homeNextUp = "पुढील",
+        homeNextPlanSub = "अजून planned नाही · हाच विषय",
+        homeNextPlanAction = "AI सोबत तयार करा",
+        homeAllDaysPlanned = "या विषयासाठी सर्व दिवस planned",
+        homeTlmKitHeadline = "घटक %d TLM kit",
+        homeTlmGapAlert = "%d पैकी %d वस्तू नाहीत — वर्गापूर्वी मिळवा",
+        homeTlmReady = "या घटकासाठी essentials तयार",
+        homeTlmViewAll = "संपूर्ण TLM यादी पहा",
+        homeTlmScanHint = "टिप: पान स्कॅन करा — TLM gaps सह थेट planning",
+    )
+
+    private val MR_PROFILE = EN_PROFILE.copy(
         profileTitle = "प्रोफाइल",
         signOut = "बाहेर पडा",
         labelName = "नाव",
@@ -248,6 +453,9 @@ object Translations {
         changeLanguage = "अॅप भाषा",
         accountSettings = "खाते",
         saveProfile = "जतन करा",
+    )
+
+    private val MR_PLAN = EN_PLAN.copy(
         planLesson = "पाठ योजना करा",
         flashcardsBtn = "फ्लॅशकार्ड",
         quickPlanTitle = "पाठ योजना",
@@ -279,7 +487,6 @@ object Translations {
         fbCouldntFinish = "⏰ पूर्ण करता आले नाही",
         fbReadyForMore = "🚀 अजून शिकायला तयार",
         recommendedNext = "शिफारस केलेला पुढचा पाऊल",
-        dismiss = "बंद करा",
         statusNotStarted = "सुरू केले नाही",
         statusPlanned = "योजना केली",
         statusInProgress = "चालू आहे",
@@ -295,29 +502,168 @@ object Translations {
         addPracticeDay = "सराव दिवस जोडा",
         reteachDay = "हा दिवस पुन्हा शिकवा",
         continueSamePlan = "त्याच योजनेत सुरू ठेवा",
+        planNextDayBtn = "पुढचा दिवस योजा",
+        reteachNotesTitle = "काय चालले नाही?",
+        reteachNotesSub = "थोडक्यात सांगा — नवीन योजना सोपी आणि योग्य असेल.",
+        reteachNotesHint = "उदा. नवीन शब्द कठीण होते, उपक्रमास वेळ जास्त लागला…",
+        modeReteachBanner = "हा दिवस पुन्हा शिकवत आहोत — तुमच्या नोंदीवरून सोपी योजना.",
+        modePracticeBanner = "अतिरिक्त सराव दिवस — त्याच उद्दिष्ट, नवीन सोपा उपक्रम.",
+        modeContinueBanner = "काल जिथे थांबले तिथून सुरू.",
         generatingStatusReading = "तुमच्या निवडी वाचत आहे…",
         generatingStatusBuilding = "वर्गासाठी उपक्रम तयार करत आहे…",
         generatingStatusTlm = "साधने तपासत आहे…",
         generatingStatusAlmost = "जवळजवळ तयार…",
         generatingStatusDone = "योजना तयार!",
-        lessonNotFound = "पाठ सापडला नाही.",
-        closeBtn = "बंद करा",
     )
 
-    val HI = EN.copy(
+    private val MR_TIER = EN_TIER.copy(
+        tierPlanTitle = "तुमचा प्लॅन",
+        tierCurrentPlan = "सध्याचा प्लॅन",
+        tierPlansRemaining = "या महिन्यात %d योजना शिल्लक",
+        tierPlansUnlimited = "अमर्यादित योजना",
+        tierUpgradeHint = "Prime मध्ये अमर्यादित योजना, worksheets आणि scan marking मिळवा.",
+        tierGradeLocked = "इयत्ता %d साठी %s आवश्यक. अनलॉक करण्यासाठी अपग्रेड करा.",
+    )
+
+    private val MR_SUB = EN_SUB.copy(
+        subTitle = "तुमचा प्लॅन निवडा",
+        subSubtitle = "Basic · Prime · Max",
+        subActive = "सक्रिय",
+        subBasicTagline = "योजना, मूल्यांकन आणि वर्ग माहिती",
+        subPrimeTagline = "अमर्यादित योजना आणि स्मार्ट साधने",
+        subMaxTagline = "क्लस्टरसाठी प्रगत अहवाल",
+        subRenewsOn = "नूतनीकरण: %s",
+        subMonthly = "मासिक",
+        subYearlySave = "वार्षिक (जास्त बचत)",
+        subFreeForever = "मोफत",
+        subCurrentPlan = "सध्याचा प्लॅन",
+        subMostPopular = "सर्वाधिक लोकप्रिय",
+        subSubscribePrime = "Prime घ्या",
+        subSubscribeMax = "Max घ्या",
+        subContactUpgrade = "अपग्रेडसाठी संपर्क करा",
+        subUpgrade = "अपग्रेड",
+        subManagePlan = "प्लॅन व्यवस्थापित करा",
+        subLoadError = "प्लॅन लोड झाले नाहीत",
+        subPlanUnavailable = "या billing cycle साठी प्लॅन उपलब्ध नाही",
+        subPaymentSuccess = "%s मध्ये स्वागत! तुमचा प्लॅन सक्रिय आहे.",
+        subPaymentFailed = "पेमेंट पूर्ण झाले नाही",
+        subPaymentsOffline = "ऑनलाइन पेमेंट लवकरच. पायलट किंवा शाळा billing साठी संपर्क करा.",
+        subWhatsAppSupport = "WhatsApp समर्थन",
+        subWhatsAppPrefill = "नमस्कार, मला PedaStudio प्लॅन अपग्रेड करायचा आहे.",
+        subSaveInr = "मासिक पेक्षा ₹%d बचत",
+    )
+
+    private val MR_SCAN = EN_SCAN.copy(
+        scanTitle = "Scan",
+        scanBtn = "Scan",
+        scanSubtitle = "पानाचा फोटो निवडा",
+        scanPickPhoto = "गॅलरीमधून फोटो निवडा",
+        scanAnalyze = "पान विश्लेषण",
+        scanAnalyzing = "विश्लेषण होत आहे…",
+        scanError = "पान विश्लेषण झाले नाही",
+        scanImageError = "फोटो वाचता आला नाही",
+        scanLocked = "स्कॅनसाठी Prime आवश्यक.",
+        scanResultTitle = "पान ओळखले",
+        scanResultsTitle = "पान स्कॅन झाले — पुढील पाऊले",
+        scanOpenCamera = "कॅमेरा उघडा",
+        scanCameraHint = "पाठ्यपुस्तकाच्या पानाकडे दाखवा. आम्ही धडा ओळखू आणि योजना, worksheet व TLM सुचवू.",
+        scanCameraCancelled = "कॅमेरा बंद. पुन्हा प्रयत्न करण्यासाठी खाली टॅप करा.",
+        scanCaptureAgain = "दुसरे पान स्कॅन करा",
+        scanCreatePlan = "धडा योजना तयार करा",
+        scanNextSteps = "पुढे काय करायचे?",
+        scanVocabulary = "शब्दसंग्रह",
+        scanSuggested = "पुढील पाऊल",
+    )
+
+    private val MR_WORKSHEET = EN_WORKSHEET.copy(
+        worksheetBtn = "Worksheet",
+        worksheetTitle = "Worksheet",
+        worksheetLocked = "Worksheet साठी Prime आवश्यक.",
+        worksheetError = "Worksheet तयार झाली नाही",
+        worksheetRetry = "पुन्हा प्रयत्न",
+        worksheetShare = "शेअर / प्रिंट",
+        worksheetTeacherNotes = "शिक्षक नोंदी",
+    )
+
+    private val MR_TLM = EN_TLM.copy(
+        tlmKitBtn = "TLM kit",
+        tlmKitTitle = "TLM खरेदी यादी",
+        tlmKitUnit = "हा घटक",
+        tlmKitYear = "संपूर्ण वर्ष",
+        tlmKitLocked = "TLM kit Basic प्लॅनवर उपलब्ध.",
+        tlmKitYearLocked = "संपूर्ण वर्ष यादीसाठी Prime.",
+        tlmKitEssential = "अत्यावश्यक",
+        tlmKitSummary = "तुमच्या वर्गात %d / %d साधने",
+        tlmKitShare = "यादी शेअर करा",
+    )
+
+    private val MR_ASSESSMENT = EN_ASSESSMENT.copy(
+        assessmentBtn = "मूल्यांकन",
+        assessmentHubTitle = "मूल्यांकन",
+        assessmentHubSub = "इयत्ता %d इंग्रजी",
+        assessmentBaseline = "Baseline",
+        assessmentBaselineDesc = "वर्षाच्या सुरुवातीची FLN तपासणी.",
+        assessmentEndline = "Endline",
+        assessmentEndlineDesc = "वर्षाच्या शेवटची तपासणी.",
+        assessmentUnitTests = "Unit tests",
+        assessmentUnitTestsDesc = "प्रत्येक unit नंतर गुण नोंदवा.",
+        assessmentEnterScores = "गुण नोंदवा",
+        assessmentUpdateScores = "गुण अद्यतनित करा",
+        assessmentEntryTitle = "गुण नोंदवा",
+        assessmentScoreLabel = "ध्येय गाठलेले विद्यार्थी",
+        assessmentScoreHint = "अंदाजे % विद्यार्थी ध्येय गाठले.",
+        assessmentSaveError = "गुण जतन झाले नाहीत",
+        assessmentLoadError = "मूल्यांकन डेटा लोड झाला नाही",
+        assessmentRetry = "पुन्हा प्रयत्न",
+    )
+
+    private val MR_ROADMAP = EN_ROADMAP.copy(
+        roadmapUnitTestSub = "घटक %d · %s",
+    )
+
+    val MR = AppStrings(
+        common = MR_COMMON,
+        auth = MR_AUTH,
+        reg = MR_REG,
+        nav = MR_NAV,
+        home = MR_HOME,
+        profile = MR_PROFILE,
+        plan = MR_PLAN,
+        tier = MR_TIER,
+        subscription = MR_SUB,
+        scan = MR_SCAN,
+        worksheet = MR_WORKSHEET,
+        tlm = MR_TLM,
+        assessment = MR_ASSESSMENT,
+        roadmap = MR_ROADMAP,
+    )
+
+    private val HI_COMMON = EN_COMMON.copy(
         chooseLanguage = "अपनी भाषा चुनें",
         appLanguage = "ऐप भाषा",
         selectLanguage = "भाषा चुनें",
         translationsComingSoon = "जल्द सभी भाषाओं में पूरा UI",
+        search = "खोजें…",
+        noMatches = "कोई परिणाम नहीं",
+        tapToSelect = "चुनने के लिए टैप करें",
+        chooseOne = "एक विकल्प चुनें",
+        continueBtn = "आगे बढ़ें",
+        goToHome = "होम पर जाएं",
+        comingSoon = "जल्द आ रहा है",
+        comingSoonBody = "कक्षा १–५ अंग्रेज़ी उपलब्ध. और विषय जल्द.",
+    )
+
+    private val HI_AUTH = EN_AUTH.copy(
         enterMobile = "मोबाइल नंबर दर्ज करें",
         sendOtp = "OTP भेजें",
         verifyOtp = "OTP सत्यापित करें",
         otpPlaceholder = "6 अंक का OTP",
+    )
+
+    private val HI_REG = EN_REG.copy(
         registration = "पंजीकरण",
         step2 = "चरण २/३ · आपके बारे में",
         step3 = "चरण ३/३ · आपकी कक्षा",
-        continueBtn = "आगे बढ़ें",
-        goToHome = "होम पर जाएं",
         yourName = "आपका नाम",
         yourNameSub = "ऐप में आपको कैसे संबोधित करें?",
         fullName = "पूरा नाम",
@@ -365,16 +711,16 @@ object Translations {
         selectInternet = "इंटरनेट उपलब्धता चुनें",
         printingAccess = "प्रिंटिंग",
         selectPrinting = "प्रिंटिंग उपलब्धता चुनें",
-        chooseOne = "एक विकल्प चुनें",
-        search = "खोजें…",
-        noMatches = "कोई परिणाम नहीं",
-        tapToSelect = "चुनने के लिए टैप करें",
+    )
+
+    private val HI_NAV = EN_NAV.copy(
         navHome = "होम",
         navRoadmap = "रोडमैप",
         navProfile = "प्रोफाइल",
+    )
+
+    private val HI_HOME = EN_HOME.copy(
         helloTeacher = "नमस्ते, %s!",
-        comingSoon = "जल्द आ रहा है",
-        comingSoonBody = "कक्षा १–५ अंग्रेज़ी उपलब्ध. और विषय जल्द.",
         setCurrentLesson = "वर्तमान पाठ चुनें",
         setCurrentLessonBody = "पाठ्यपुस्तक में आप कहाँ हैं, चुनें.",
         goToRoadmap = "रोडमैप →",
@@ -383,6 +729,9 @@ object Translations {
         planLessonSoon = "✨ पाठ योजना (जल्द)",
         tapLessonNow = "अभी पढ़ाए जा रहे पाठ पर टैप करें",
         unitLabel = "इकाई",
+    )
+
+    private val HI_PROFILE = EN_PROFILE.copy(
         profileTitle = "प्रोफाइल",
         signOut = "साइन आउट",
         labelName = "नाम",
@@ -396,6 +745,9 @@ object Translations {
         changeLanguage = "ऐप भाषा",
         accountSettings = "खाता",
         saveProfile = "सहेजें",
+    )
+
+    private val HI_PLAN = EN_PLAN.copy(
         planLesson = "पाठ योजना बनाएं",
         flashcardsBtn = "फ्लैशकार्ड",
         quickPlanTitle = "पाठ योजना",
@@ -416,20 +768,47 @@ object Translations {
         daysLabel = "दिन",
     )
 
-    val UR = EN.copy(
+    val HI = AppStrings(
+        common = HI_COMMON,
+        auth = HI_AUTH,
+        reg = HI_REG,
+        nav = HI_NAV,
+        home = HI_HOME,
+        profile = HI_PROFILE,
+        plan = HI_PLAN,
+        tier = EN_TIER,
+        subscription = EN_SUB,
+        scan = EN_SCAN,
+        worksheet = EN_WORKSHEET,
+        tlm = EN_TLM,
+        assessment = EN_ASSESSMENT,
+        roadmap = EN_ROADMAP,
+    )
+
+    private val UR_COMMON = EN_COMMON.copy(
         chooseLanguage = "اپنی زبان منتخب کریں",
         appLanguage = "ایپ زبان",
         selectLanguage = "زبان منتخب کریں",
         translationsComingSoon = "جلد تمام زبانوں میں مکمل UI",
+        search = "تلاش…",
+        noMatches = "کچھ نہیں ملا",
+        tapToSelect = "منتخب کرنے کے لیے ٹیپ کریں",
+        chooseOne = "ایک آپشن منتخب کریں",
+        continueBtn = "آگے بڑھیں",
+        goToHome = "ہوم پر جائیں",
+    )
+
+    private val UR_AUTH = EN_AUTH.copy(
         enterMobile = "موبائل نمبر درج کریں",
         sendOtp = "OTP بھیجیں",
         verifyOtp = "OTP تصدیق کریں",
         otpPlaceholder = "6 ہندسے کا OTP",
+    )
+
+    private val UR_REG = EN_REG.copy(
         registration = "رجسٹریشن",
         step2 = "مرحلہ ۲/۳ · آپ کے بارے میں",
         step3 = "مرحلہ ۳/۳ · آپ کے درجے کے بارے میں",
-        continueBtn = "آگے بڑھیں",
-        goToHome = "ہوم پر جائیں",
         yourName = "آپ کا نام",
         yourNameSub = "ایپ میں آپ کو کیا کہیں؟",
         fullName = "پورا نام",
@@ -477,16 +856,16 @@ object Translations {
         selectInternet = "انternet دستیابی",
         printingAccess = "پرنٹنگ",
         selectPrinting = "پرنٹنگ دستیابی",
-        chooseOne = "ایک آپشن منتخب کریں",
-        search = "تلاش…",
-        noMatches = "کچھ نہیں ملا",
-        tapToSelect = "منتخب کرنے کے لیے ٹیپ کریں",
+    )
+
+    private val UR_NAV = EN_NAV.copy(
         navHome = "ہوم",
         navRoadmap = "روڈ میپ",
         navProfile = "پروفائل",
+    )
+
+    private val UR_HOME = EN_HOME.copy(
         helloTeacher = "آداب، %s!",
-        comingSoon = "جلد",
-        comingSoonBody = "جماعت ۱–۵ انگریزی دستیاب. مزید جلد.",
         setCurrentLesson = "موجودہ سبق منتخب کریں",
         setCurrentLessonBody = "درسی کتاب میں آپ کہاں ہیں، منتخب کریں.",
         goToRoadmap = "روڈ میپ →",
@@ -495,6 +874,9 @@ object Translations {
         planLessonSoon = "✨ سبق منصوبہ (جلد)",
         tapLessonNow = "اب پڑھائے جانے والے سبق پر ٹیپ کریں",
         unitLabel = "یونٹ",
+    )
+
+    private val UR_PROFILE = EN_PROFILE.copy(
         profileTitle = "پروفائل",
         signOut = "سائن آؤٹ",
         labelName = "نام",
@@ -508,6 +890,9 @@ object Translations {
         changeLanguage = "ایپ کی زبان",
         accountSettings = "اکاؤنٹ",
         saveProfile = "محفوظ کریں",
+    )
+
+    private val UR_PLAN = EN_PLAN.copy(
         planLesson = "سبق کی منصوبہ بندی",
         flashcardsBtn = "فلیش کارڈ",
         quickPlanTitle = "سبق منصوبہ",
@@ -526,5 +911,22 @@ object Translations {
         flashcardsTitle = "فلیش کارڈ",
         pagesLabel = "صفحات",
         daysLabel = "دن",
+    )
+
+    val UR = AppStrings(
+        common = UR_COMMON,
+        auth = UR_AUTH,
+        reg = UR_REG,
+        nav = UR_NAV,
+        home = UR_HOME,
+        profile = UR_PROFILE,
+        plan = UR_PLAN,
+        tier = EN_TIER,
+        subscription = EN_SUB,
+        scan = EN_SCAN,
+        worksheet = EN_WORKSHEET,
+        tlm = EN_TLM,
+        assessment = EN_ASSESSMENT,
+        roadmap = EN_ROADMAP,
     )
 }

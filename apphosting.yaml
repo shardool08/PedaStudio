@@ -12,6 +12,20 @@ env:
     availability:
       - RUNTIME
 
+  - variable: RAZORPAY_KEY_ID
+    secret: RAZORPAY_KEY_ID
+    availability:
+      - RUNTIME
+  - variable: RAZORPAY_KEY_SECRET
+    secret: RAZORPAY_KEY_SECRET
+    availability:
+      - RUNTIME
+  - variable: NEXT_PUBLIC_RAZORPAY_KEY_ID
+    secret: RAZORPAY_KEY_ID
+    availability:
+      - BUILD
+      - RUNTIME
+
   # Public Firebase web config (needed at build + runtime; .env is not uploaded)
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     value: AIzaSyCt7pGP4gfnHgB0A88dHvcT5HxGXDT0_lw

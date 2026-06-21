@@ -25,6 +25,8 @@ import com.tippingpoint.pedastudio.data.CurriculumRepository
 import com.tippingpoint.pedastudio.data.FirestoreRepository
 import com.tippingpoint.pedastudio.data.LessonItem
 import com.tippingpoint.pedastudio.data.PlanStorage
+import com.tippingpoint.pedastudio.data.TeacherAccount
+import com.tippingpoint.pedastudio.data.TierConfig
 import com.tippingpoint.pedastudio.data.TlmResourceCatalog
 import com.tippingpoint.pedastudio.data.UserPreferences
 import com.tippingpoint.pedastudio.i18n.GeneratingQuotes
@@ -37,6 +39,7 @@ import com.tippingpoint.pedastudio.ui.components.InfoBannerCard
 import com.tippingpoint.pedastudio.ui.components.OutlinedFormField
 import com.tippingpoint.pedastudio.ui.components.PlanGeneratingOverlay
 import com.tippingpoint.pedastudio.ui.components.RegisterScaffold
+import com.tippingpoint.pedastudio.ui.components.UpgradeBanner
 import com.tippingpoint.pedastudio.ui.theme.PrimarySteel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -48,12 +51,17 @@ import kotlin.random.Random
 fun QuickPlanScreen(
     lessonId: String,
     initialDay: Int = 1,
+    planningMode: String = "",
+    initialReteachNotes: String = "",
     prefs: UserPreferences,
     curriculum: CurriculumRepository,
     planStorage: PlanStorage,
     tlmCatalog: TlmResourceCatalog,
     firestore: FirestoreRepository,
     auth: PhoneAuthController,
+    teacherAccount: TeacherAccount,
+    onAccountUpdated: (TeacherAccount) -> Unit,
+    onUpgrade: () -> Unit,
     onBack: () -> Unit,
     onPlanReady: (String, Int) -> Unit,
 ) {
@@ -91,7 +99,7 @@ fun QuickPlanScreen(
     var teaching by remember { mutableStateOf("") }
     var practice by remember { mutableStateOf("") }
     var assessment by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+    var notes by remember(initialReteachNotes) { mutableStateOf(initialReteachNotes) }
     var selectedTlms by remember {
         mutableStateOf(
             prefs.getTeacherResources().toSet().ifEmpty { setOf("blackboard", "textbook", "notebook") },
@@ -145,6 +153,13 @@ fun QuickPlanScreen(
 
     fun tlmLabels(): String = selectedTlms.map { tlmCatalog.labelFor(it) }.joinToString(", ")
 
+    val modeBanner = when (planningMode) {
+        "reteach" -> s.modeReteachBanner
+        "practice" -> s.modePracticeBanner
+        "continue" -> s.modeContinueBanner
+        else -> null
+    }
+
     Box(Modifier.fillMaxSize()) {
         RegisterScaffold(
             title = s.quickPlanTitle,
@@ -156,7 +171,9 @@ fun QuickPlanScreen(
                 teaching.isNotBlank() &&
                 practice.isNotBlank() &&
                 assessment.isNotBlank() &&
-                PlanApiClient.isConfigured,
+                PlanApiClient.isConfigured &&
+                TierConfig.canGeneratePlan(teacherAccount) &&
+                TierConfig.gradeAllowed(teacherAccount, lesson.gradeNumber()),
             onBack = if (generating) null else onBack,
             onContinue = {
                 if (!PlanApiClient.isConfigured) {
@@ -177,16 +194,26 @@ fun QuickPlanScreen(
                     )
                     val result = withContext(Dispatchers.IO) {
                         val idToken = auth.getIdToken()
-                        PlanApiClient.generatePlan(lesson, day, lesson.dayFocus(day), selections, prefs, idToken)
+                        PlanApiClient.generatePlan(
+                            lesson,
+                            day,
+                            lesson.dayFocus(day),
+                            selections,
+                            prefs,
+                            idToken,
+                            mode = planningMode,
+                            reteachNotes = initialReteachNotes,
+                        )
                     }
                     result.fold(
-                        onSuccess = { plan ->
+                        onSuccess = { generated ->
                             progress = 100
                             quote = GeneratingQuotes.randomQuote(lang)
                             delay(700)
-                            val planJson = plan.toString()
+                            val planJson = generated.plan.toString()
                             planStorage.savePlan(lesson.id, day, planJson, selections)
                             firestore.pushPlan(lesson.id, day, planJson, selections, planStorage)
+                            generated.account?.let(onAccountUpdated)
                             generating = false
                             onPlanReady(lesson.id, day)
                         },
@@ -200,6 +227,31 @@ fun QuickPlanScreen(
         ) {
             if (!PlanApiClient.isConfigured) {
                 Text(s.apiNotConfigured, color = Color.Red.copy(0.8f), fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp))
+            } else if (!TierConfig.gradeAllowed(teacherAccount, lesson.gradeNumber())) {
+                Text(
+                    "Grade ${lesson.gradeNumber()} needs ${TierConfig.upgradeLabel(teacherAccount.tier)}.",
+                    color = Color.Red.copy(0.8f),
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            } else if (!TierConfig.canGeneratePlan(teacherAccount)) {
+                UpgradeBanner(
+                    s = s,
+                    message = s.tierPlansRemaining.format(teacherAccount.plansRemaining ?: 0),
+                    onUpgrade = onUpgrade,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            } else if (teacherAccount.plansRemaining != null) {
+                Text(
+                    s.tierPlansRemaining.format(teacherAccount.plansRemaining),
+                    color = PrimarySteel.copy(0.75f),
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+
+            if (modeBanner != null) {
+                InfoBannerCard(title = s.recommendedNext, body = modeBanner)
             }
 
             LessonHeaderCard(lesson, s)

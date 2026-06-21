@@ -33,6 +33,7 @@ class PlanStorage(context: Context) {
             .putString(statusKey(lessonId, day), DayPlanStatus.COMPLETED.key)
             .putString(feedbackKey(lessonId, day), feedback.key)
             .putLong(completedAtKey(lessonId, day), System.currentTimeMillis())
+            .remove(homeActionDismissKey(lessonId, day))
             .apply()
     }
 
@@ -126,6 +127,15 @@ class PlanStorage(context: Context) {
         val day = parts[1].toIntOrNull() ?: return null
         return parts[0] to day
     }
+
+    fun dismissHomeNextAction(lessonId: String, completedDay: Int) {
+        prefs.edit().putBoolean(homeActionDismissKey(lessonId, completedDay), true).apply()
+    }
+
+    fun isHomeNextActionDismissed(lessonId: String, completedDay: Int): Boolean =
+        prefs.getBoolean(homeActionDismissKey(lessonId, completedDay), false)
+
+    private fun homeActionDismissKey(lessonId: String, day: Int) = "home_dismiss_${lessonId}_$day"
 
     private fun key(lessonId: String, day: Int) = "plan_${lessonId}_$day"
 

@@ -98,6 +98,39 @@ export function getAssessmentGroups(grade: number, subject: string): Record<stri
   return data?.assessments || {};
 }
 
+function isEnglishMediumValue(medium: string): boolean {
+  const m = medium.toLowerCase().replace("_", "-");
+  return ENGLISH_MEDIUMS.some((v) => v.toLowerCase() === m);
+}
+
+/** Server/API: pick L1 vs L2 from explicit medium string. */
+export function getLessonsForMedium(
+  grade: number,
+  subject: string,
+  medium: string,
+): BalbharatiLesson[] {
+  const key = `${grade}-${subject}`;
+  const data = GRADE_DATA[key];
+  if (!data) return [];
+  const eng = isEnglishMediumValue(medium);
+  const bucket = eng && data.l1 ? data.l1 : data.l2;
+  if (grade === 1 && !eng) return bucket.lessons as BalbharatiLesson[];
+  return normalizeLessons(bucket.lessons, bucket.assessments);
+}
+
+export function getAssessmentGroupsForMedium(
+  grade: number,
+  subject: string,
+  medium: string,
+): Record<string, { name: string; lessons: string[]; focus: string }> {
+  const key = `${grade}-${subject}`;
+  const data = GRADE_DATA[key];
+  if (!data) return {};
+  const eng = isEnglishMediumValue(medium);
+  const bucket = eng && data.l1 ? data.l1 : data.l2;
+  return bucket.assessments;
+}
+
 export function isAvailable(grade: number, subject: string): boolean {
   const gs = allGradeSubjects.find(g => g.grade === grade && g.subject === subject);
   return gs?.available || false;

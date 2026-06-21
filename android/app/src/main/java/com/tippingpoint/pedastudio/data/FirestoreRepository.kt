@@ -344,6 +344,7 @@ fun UserPreferences.applyFromFirestore(data: Map<String, Any?>) {
     (data["teacherSubjects"] as? List<*>)?.mapNotNull { it as? String }?.let { setTeacherSubjects(it) }
     (data["teacherResources"] as? List<*>)?.mapNotNull { it as? String }?.let { setTeacherResources(it) }
     (data["profileComplete"] as? Boolean)?.let { profileComplete = it }
+    (data["tier"] as? String)?.let { cachedTier = it }
     (data["currentLessons"] as? Map<*, *>)?.forEach { (k, v) ->
         val key = k as? String ?: return@forEach
         val lessonId = v as? String ?: return@forEach

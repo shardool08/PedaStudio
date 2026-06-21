@@ -13,9 +13,11 @@
     "android:curriculum": "node scripts/export-curriculum-android.mjs",
     "android:assets": "node scripts/export-curriculum-android.mjs",
     "firebase:seed-catalog": "node scripts/seed-firebase-catalog.mjs",
+    "firebase:init-db": "node scripts/init-database.mjs",
     "apphosting:build": "next build",
     "firebase:deploy-rules": "firebase deploy --only firestore:rules,storage",
-    "firebase:deploy-api": "firebase deploy --only \"apphosting:pedastudio-api\" --project pedastudio-d6b2a"
+    "firebase:deploy-api": "firebase deploy --only \"apphosting:pedastudio-api\" --project pedastudio-d6b2a",
+    "tier:set": "node scripts/set-teacher-tier.mjs"
   },
   "dependencies": {
     "firebase-admin": "^13.10.0",

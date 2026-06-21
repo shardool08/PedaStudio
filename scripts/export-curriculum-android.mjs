@@ -78,6 +78,50 @@ function parseStringArray(filePath, constName) {
   return items;
 }
 
+function parseAssessmentGroups(filePath) {
+  const text = readFileSync(join(ROOT, filePath), "utf8");
+  const block = text.match(/export const assessmentGroups[\s\S]*?=\s*\{([\s\S]*?)\};\s*(?:export|$)/);
+  if (!block) return {};
+  const groups = {};
+  const groupRe = /(\w+):\s*\{\s*name:\s*"((?:\\.|[^"\\])*)"\s*,\s*lessons:\s*\[([\s\S]*?)\]\s*,\s*focus:\s*"((?:\\.|[^"\\])*)"\s*\}/g;
+  let m;
+  while ((m = groupRe.exec(block[1])) !== null) {
+    const lessons = [];
+    const lessonRe = /"([^"]+)"/g;
+    let lm;
+    while ((lm = lessonRe.exec(m[3])) !== null) lessons.push(lm[1]);
+    groups[m[1]] = {
+      name: unescapeJsString(m[2]),
+      lessons,
+      focus: unescapeJsString(m[4]),
+    };
+  }
+  return groups;
+}
+
+function parseL1AssessmentGroups(filePath, constName) {
+  const text = readFileSync(join(ROOT, filePath), "utf8");
+  const block = text.match(
+    new RegExp(`export const ${constName}[\\s\\S]*?=\\s*\\{([\\s\\S]*?)\\};\\s*(?:export|$)`),
+  );
+  if (!block) return {};
+  const groups = {};
+  const groupRe = /(\w+):\s*\{\s*name:\s*"((?:\\.|[^"\\])*)"\s*,\s*lessons:\s*\[([\s\S]*?)\]\s*,\s*focus:\s*"((?:\\.|[^"\\])*)"\s*\}/g;
+  let m;
+  while ((m = groupRe.exec(block[1])) !== null) {
+    const lessons = [];
+    const lessonRe = /"([^"]+)"/g;
+    let lm;
+    while ((lm = lessonRe.exec(m[3])) !== null) lessons.push(lm[1]);
+    groups[m[1]] = {
+      name: unescapeJsString(m[2]),
+      lessons,
+      focus: unescapeJsString(m[4]),
+    };
+  }
+  return groups;
+}
+
 function parseLabelValues(filePath, constName) {
   const text = readFileSync(join(ROOT, filePath), "utf8");
   const block = text.match(new RegExp(`export const ${constName} = \\[([\\s\\S]*?)\\] as const`));
@@ -161,6 +205,17 @@ const curriculum = {
 };
 
 writeFileSync(join(OUT, "curriculum.json"), JSON.stringify(curriculum));
+
+const assessments = {
+  "1_l2": parseAssessmentGroups("lib/curriculum/grade1-english.ts"),
+  "1_l1": parseL1AssessmentGroups("lib/curriculum/grade1-english-l1.ts", "grade1EnglishL1AssessmentGroups"),
+  "2_l2": parseL1AssessmentGroups("lib/curriculum/grade2-english-l2.ts", "grade2EnglishL2AssessmentGroups"),
+  "2_l1": parseL1AssessmentGroups("lib/curriculum/grade2-english-l1.ts", "grade2EnglishL1AssessmentGroups"),
+  "3_l2": parseL1AssessmentGroups("lib/curriculum/grade3-english-l2.ts", "grade3EnglishL2AssessmentGroups"),
+  "4_l2": parseL1AssessmentGroups("lib/curriculum/grade4-english-l2.ts", "grade4EnglishL2AssessmentGroups"),
+  "5_l2": parseL1AssessmentGroups("lib/curriculum/grade5-english-l2.ts", "grade5EnglishL2AssessmentGroups"),
+};
+writeFileSync(join(OUT, "assessments.json"), JSON.stringify(assessments));
 
 const tlmText = readFileSync(join(ROOT, "lib/tlm.ts"), "utf8");
 const tlmResources = [];

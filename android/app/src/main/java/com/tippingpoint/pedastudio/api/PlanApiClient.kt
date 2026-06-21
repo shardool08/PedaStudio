@@ -3,6 +3,7 @@ package com.tippingpoint.pedastudio.api
 import com.tippingpoint.pedastudio.BuildConfig
 import com.tippingpoint.pedastudio.data.DayInfo
 import com.tippingpoint.pedastudio.data.LessonItem
+import com.tippingpoint.pedastudio.data.TeacherAccount
 import com.tippingpoint.pedastudio.data.UserPreferences
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -27,7 +28,9 @@ object PlanApiClient {
         selections: Map<String, String>,
         prefs: UserPreferences,
         idToken: String?,
-    ): Result<JSONObject> {
+        mode: String = "",
+        reteachNotes: String = "",
+    ): Result<PlanGenerationResult> {
         val base = BuildConfig.API_BASE_URL.trimEnd('/')
         if (base.isBlank()) {
             return Result.failure(IllegalStateException("API URL not set. Add pedastudio.api.url=http://10.0.2.2:3000 to android/local.properties"))
@@ -48,11 +51,29 @@ object PlanApiClient {
             put("comfort", prefs.englishComfort)
         }
 
+        val mergedNotes = buildString {
+            if (reteachNotes.isNotBlank()) {
+                append("What didn't work in class: ")
+                append(reteachNotes.trim())
+            }
+            val extra = selections["notes"].orEmpty().trim()
+            if (extra.isNotBlank()) {
+                if (isNotEmpty()) append("\n")
+                append(extra)
+            }
+        }
+        val mergedSelections = selections.toMutableMap().apply {
+            if (mergedNotes.isNotBlank()) put("notes", mergedNotes)
+        }
+
         val body = JSONObject().apply {
             put("lessonId", lesson.id)
             put("day", day)
-            put("selections", JSONObject(selections))
+            put("selections", JSONObject(mergedSelections))
             put("teacherProfile", teacherProfile)
+            if (mode == "practice" || mode == "reteach" || mode == "continue") {
+                put("mode", mode)
+            }
         }
 
         val requestBuilder = Request.Builder()
@@ -78,30 +99,31 @@ object PlanApiClient {
         return Result.failure(lastError ?: Exception("Could not generate plan"))
     }
 
-    private fun executeGeneratePlan(request: Request, base: String): Result<JSONObject> {
+    private fun executeGeneratePlan(request: Request, base: String): Result<PlanGenerationResult> {
         return try {
             client.newCall(request).execute().use { response ->
                 val text = response.body?.string().orEmpty()
+                val json = runCatching { JSONObject(text) }.getOrNull()
                 if (!response.isSuccessful) {
-                    val serverError = runCatching {
-                        JSONObject(text).optString("error", text).takeIf { it.isNotBlank() }
-                    }.getOrNull() ?: text
+                    val serverError = json?.optString("error", text)?.takeIf { it.isNotBlank() } ?: text
                     val friendly = when (response.code) {
                         401 -> "Please sign in again, then try generating the plan."
+                        403, 429 -> serverError.ifBlank { "This feature needs a higher plan." }
                         503 -> when {
                             serverError.contains("API key", ignoreCase = true) ->
                                 "Server missing Claude API key. Redeploy App Hosting after setting ANTHROPIC_API_KEY secret."
-                            serverError.isNotBlank() && serverError.length < 120 -> serverError
+                            serverError.isNotBlank() && serverError.length < 200 -> serverError
                             else -> "Plan service is starting up. Wait a minute and try again."
                         }
                         else -> "Server error ${response.code}: $serverError"
                     }
                     return Result.failure(Exception(friendly))
                 }
-                val json = JSONObject(text)
-                val plan = json.optJSONObject("plan")
+                val root = json ?: return Result.failure(Exception("No plan in response"))
+                val plan = root.optJSONObject("plan")
                     ?: return Result.failure(Exception("No plan in response"))
-                Result.success(plan)
+                val account = root.optJSONObject("account")?.let { AccountApiClient.parseAccount(it) }
+                Result.success(PlanGenerationResult(plan, account))
             }
         } catch (e: Exception) {
             val msg = e.message.orEmpty()

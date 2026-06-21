@@ -78,6 +78,19 @@ class UserPreferences(context: Context) {
         get() = prefs.getBoolean("profileComplete", false)
         set(value) = prefs.edit().putBoolean("profileComplete", value).apply()
 
+    var cachedTier: String
+        get() = prefs.getString("cachedTier", "basic") ?: "basic"
+        set(value) = prefs.edit().putString("cachedTier", value).apply()
+
+    var cachedPlansRemaining: Int
+        get() = prefs.getInt("cachedPlansRemaining", 20)
+        set(value) = prefs.edit().putInt("cachedPlansRemaining", value).apply()
+
+    fun applyTeacherAccount(account: TeacherAccount) {
+        cachedTier = account.tier.key
+        cachedPlansRemaining = account.plansRemaining ?: 999
+    }
+
     fun getTeacherGrades(): List<Int> = readIntList("teacherGrades", listOf(1))
 
     fun setTeacherGrades(grades: List<Int>) = writeIntList("teacherGrades", grades)

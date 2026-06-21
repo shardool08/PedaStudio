@@ -6,9 +6,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
@@ -74,45 +73,62 @@ fun FlashcardsScreen(
             return@RegisterScaffold
         }
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+        Column(
             modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(pack.cards) { card ->
-                Card(
+            pack.cards.chunked(2).forEach { rowCards ->
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = BgTint),
-                    border = BorderStroke(1.dp, SeasideBorder),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        if (card.imageUrl.isNotBlank()) {
-                            AsyncImage(
-                                model = card.imageUrl,
-                                contentDescription = card.word,
-                                modifier = Modifier
-                                    .size(72.dp)
-                                    .height(72.dp),
-                                contentScale = ContentScale.Fit,
-                            )
-                        } else {
-                            Text(card.emoji, fontSize = 36.sp)
-                        }
-                        Text(card.word, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PrimaryDark)
-                        Text(
-                            card.meaning(lang),
-                            fontSize = 13.sp,
-                            color = AccentTeal,
-                            textAlign = TextAlign.Center,
-                        )
+                    rowCards.forEach { card ->
+                        FlashcardTile(card = card, lang = lang, modifier = Modifier.weight(1f))
+                    }
+                    if (rowCards.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun FlashcardTile(
+    card: com.tippingpoint.pedastudio.data.FlashcardItem,
+    lang: String,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = BgTint),
+        border = BorderStroke(1.dp, SeasideBorder),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            if (card.imageUrl.isNotBlank()) {
+                AsyncImage(
+                    model = card.imageUrl,
+                    contentDescription = card.word,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .height(72.dp),
+                    contentScale = ContentScale.Fit,
+                )
+            } else {
+                Text(card.emoji, fontSize = 36.sp)
+            }
+            Text(card.word, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PrimaryDark)
+            Text(
+                card.meaning(lang),
+                fontSize = 13.sp,
+                color = AccentTeal,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
