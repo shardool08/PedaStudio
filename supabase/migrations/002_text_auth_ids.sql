@@ -8,6 +8,16 @@
 --
 -- Safe to re-run. Run in Supabase SQL Editor.
 
+-- ─── Drop policies first ────────────────────────────────
+-- Postgres refuses to alter a column that a policy definition references, so the
+-- policies come off here and are recreated at the bottom.
+drop policy if exists teachers_select_own on public.teachers;
+drop policy if exists teachers_update_own on public.teachers;
+drop policy if exists plans_own on public.plans;
+drop policy if exists assessments_own on public.assessments;
+drop policy if exists classes_own on public.classes;
+drop policy if exists payments_select_own on public.payments;
+
 -- ─── Stop depending on auth.users ────────────────────────
 drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists public.handle_new_user();
@@ -51,27 +61,21 @@ alter table public.assessments drop constraint if exists assessments_unique_key;
 alter table public.assessments
   add constraint assessments_unique_key unique (teacher_id, type, grade, group_id);
 
--- ─── RLS: compare auth.uid() as text ────────────────────
-drop policy if exists teachers_select_own on public.teachers;
+-- ─── Recreate policies, comparing auth.uid() as text ────
 create policy teachers_select_own on public.teachers
   for select using (auth.uid()::text = id);
 
-drop policy if exists teachers_update_own on public.teachers;
 create policy teachers_update_own on public.teachers
   for update using (auth.uid()::text = id);
 
-drop policy if exists plans_own on public.plans;
 create policy plans_own on public.plans
   for all using (auth.uid()::text = teacher_id) with check (auth.uid()::text = teacher_id);
 
-drop policy if exists assessments_own on public.assessments;
 create policy assessments_own on public.assessments
   for all using (auth.uid()::text = teacher_id) with check (auth.uid()::text = teacher_id);
 
-drop policy if exists classes_own on public.classes;
 create policy classes_own on public.classes
   for all using (auth.uid()::text = teacher_id) with check (auth.uid()::text = teacher_id);
 
-drop policy if exists payments_select_own on public.payments;
 create policy payments_select_own on public.payments
   for select using (auth.uid()::text = teacher_id);
