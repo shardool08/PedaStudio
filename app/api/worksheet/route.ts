@@ -4,8 +4,8 @@ import { anthropicMessages, parseLessonGrade } from "@/lib/api-utils";
 import { allLessonsServer } from "@/lib/curriculum";
 import { getAccountWithSubscription } from "@/lib/subscription-service";
 import {
+  assertWorksheetAllowed,
   assertFeatureAllowed,
-  assertMonthlyUsageAllowed,
   incrementUsage,
   TierLimitError,
 } from "@/lib/tier-service";
@@ -38,8 +38,7 @@ export async function POST(req: NextRequest) {
 
     let account;
     try {
-      account = await assertFeatureAllowed(auth.uid, "worksheets", "prime");
-      account = await assertMonthlyUsageAllowed(auth.uid, "worksheets", "prime");
+      account = await assertWorksheetAllowed(auth.uid);
     } catch (err) {
       if (err instanceof TierLimitError) {
         return tierErrorResponse(auth.uid, err);
@@ -54,7 +53,7 @@ export async function POST(req: NextRequest) {
         {
           error: `Grade ${lessonGrade} requires a higher plan.`,
           code: "GRADE_LOCKED",
-          upgradeTier: lessonGrade <= 5 ? "prime" : "max",
+          upgradeTier: "prime",
           account: updated,
         },
         { status: 403 },
@@ -87,7 +86,6 @@ Return ONLY valid JSON:
 Include 5-8 age-appropriate items. No markdown.`;
 
     const result = await anthropicMessages({
-      model: "claude-sonnet-4-20250514",
       max_tokens: 2048,
       messages: [{ role: "user", content: prompt }],
     });

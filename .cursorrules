@@ -70,9 +70,5 @@ Built with Next.js 15 + Tailwind CSS v4 + Claude API. localStorage for data (no 
 - App not yet deployed (runs on localhost)
 
 ## Pending Work
-- Run flashcard generation pipeline (scripts/)
-- Build UI to load pre-generated flashcards from JSON
 - Grade 4-5 curriculum content verification
-- Grade 6-8 curriculum data
 - Deploy to Vercel
-- Voice input (v2)

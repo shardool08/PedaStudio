@@ -70,5 +70,5 @@ export interface PlanDocument {
   feedback?: string;
   savedAt: number;
   completedAt?: number;
-  updatedAt?: FirebaseFirestore.Timestamp;
+  updatedAt?: string;
 }

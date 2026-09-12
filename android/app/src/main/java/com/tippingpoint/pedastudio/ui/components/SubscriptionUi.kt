@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tippingpoint.pedastudio.api.TierComparisonRow
 import com.tippingpoint.pedastudio.data.TeacherAccount
 import com.tippingpoint.pedastudio.data.TierConfig
 import com.tippingpoint.pedastudio.i18n.AppStrings
@@ -92,7 +93,9 @@ fun MembershipHeroCard(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 TierBadge(account.tier)
-                if (account.subscription.isActive) {
+                if (account.subscription.isTrial) {
+                    Text(s.subTrialActive.format(trialDaysLeft(account)), color = AccentTeal, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                } else if (account.subscription.isActive) {
                     Text(s.subActive, color = AccentTeal, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
@@ -154,7 +157,9 @@ fun PlanOfferCard(
     priceLabel: String?,
     periodLabel: String?,
     savingsLabel: String?,
+    monthlyEquivalentInr: Int? = null,
     isCurrent: Boolean,
+    isIncluded: Boolean = false,
     isRecommended: Boolean,
     buttonText: String,
     enabled: Boolean,
@@ -162,8 +167,8 @@ fun PlanOfferCard(
     modifier: Modifier = Modifier,
 ) {
     val border = when {
-        isRecommended -> AccentTeal
         isCurrent -> PrimarySteel
+        isRecommended -> AccentTeal
         else -> SeasideBorder
     }
     Card(
@@ -208,27 +213,101 @@ fun PlanOfferCard(
                 savingsLabel?.let {
                     Text(it, fontSize = 12.sp, color = AccentTeal, fontWeight = FontWeight.Medium)
                 }
+                monthlyEquivalentInr?.let { equiv ->
+                    Text(
+                        s.subYearlyEquivalent.format(equiv),
+                        fontSize = 12.sp,
+                        color = PrimarySteel.copy(0.7f),
+                    )
+                }
             } else {
                 Text(s.subFreeForever, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = PrimaryDark)
             }
-            if (isCurrent) {
-                OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
-                    Text(s.subCurrentPlan)
+            when {
+                isCurrent -> {
+                    OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                        Text(s.subCurrentPlan)
+                    }
                 }
-            } else {
-                Button(
-                    onClick = onSelect,
-                    enabled = enabled,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = if (isRecommended) AccentTeal else PrimaryDark),
-                ) {
-                    Text(buttonText, fontWeight = FontWeight.SemiBold)
+                isIncluded -> {
+                    OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                        Text(s.subIncludedInPlan)
+                    }
+                }
+                tier == TierConfig.TierId.BASIC && !isIncluded -> {
+                    OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                        Text(s.subFreeForever)
+                    }
+                }
+                else -> {
+                    Button(
+                        onClick = onSelect,
+                        enabled = enabled,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (isRecommended) AccentTeal else PrimaryDark),
+                    ) {
+                        Text(buttonText, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
     }
 }
+
+@Composable
+fun PlanFeatureComparisonTable(
+    s: AppStrings,
+    rows: List<TierComparisonRow> = defaultComparisonRows(),
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, SeasideBorder),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(s.subCompareTitle, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PrimaryDark)
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Text("", modifier = Modifier.weight(1.4f), fontSize = 11.sp)
+                Text("Basic", modifier = Modifier.weight(0.8f), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PrimarySteel)
+                Text("Prime", modifier = Modifier.weight(0.8f), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentTeal)
+                Text("Max", modifier = Modifier.weight(0.8f), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PrimaryDark)
+            }
+            rows.forEach { row ->
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(row.feature, modifier = Modifier.weight(1.4f), fontSize = 12.sp, color = PrimaryDark)
+                    Text(row.basic, modifier = Modifier.weight(0.8f), fontSize = 11.sp, color = PrimarySteel.copy(0.85f))
+                    Text(row.prime, modifier = Modifier.weight(0.8f), fontSize = 11.sp, color = PrimarySteel.copy(0.85f))
+                    Text(row.max, modifier = Modifier.weight(0.8f), fontSize = 11.sp, color = PrimarySteel.copy(0.85f))
+                }
+            }
+        }
+    }
+}
+
+private fun defaultComparisonRows(): List<TierComparisonRow> = listOf(
+    TierComparisonRow("Grades (English)", "All Grades 1–5", "All Grades 1–5", "All Grades 1–5"),
+    TierComparisonRow("Lesson plans", "2 per week", "6 per week", "6 per week"),
+    TierComparisonRow("Re-teach, practice & continue", "✓", "✓", "✓"),
+    TierComparisonRow("Worksheets", "—", "1 with each lesson plan", "Unlimited"),
+    TierComparisonRow("Unit tests", "✓", "✓", "✓"),
+    TierComparisonRow("Annual assessment (baseline & endline)", "✓", "✓", "✓"),
+    TierComparisonRow("Student skill report", "Class summary", "Full class skill map", "Full + PDF export"),
+    TierComparisonRow("Learning-based lesson plans", "—", "From your test scores", "Priority tailoring"),
+    TierComparisonRow("Bulk answer-sheet marking", "—", "✓", "✓ + faster queue"),
+    TierComparisonRow("Scan & plan (textbook photo)", "—", "—", "2 per week"),
+    TierComparisonRow("School cluster report pack", "—", "—", "✓"),
+)
+
+private fun trialDaysLeft(account: TeacherAccount): Int {
+    val expires = account.subscription.expiresAt ?: return MAX_TRIAL_DAYS
+    val msLeft = expires - System.currentTimeMillis()
+    return maxOf(1, ((msLeft + 86_399_999) / 86_400_000).toInt())
+}
+
+private const val MAX_TRIAL_DAYS = 7
 
 @Composable
 fun UpgradeBanner(

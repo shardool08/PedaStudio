@@ -129,21 +129,26 @@ fun RegisterScaffold(
             }
         },
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
-                .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .fillMaxSize(),
         ) {
             Column(
-                modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                content()
-                Spacer(Modifier.height(88.dp))
+                Column(
+                    modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    content()
+                    Spacer(Modifier.height(88.dp))
+                }
             }
         }
     }

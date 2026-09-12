@@ -1,4 +1,4 @@
 # Production API URL for release / Play Store builds (Firebase App Hosting)
 # After first deploy, copy your backend URL from Firebase Console → App Hosting → pedastudio-api
 # Format is usually: https://pedastudio-api--pedastudio-d6b2a.<region>.hosted.app
-pedastudio.api.url.production=https://pedastudio-api--pedastudio-d6b2a.asia-southeast1.hosted.app
+pedastudio.api.url.production=https://pedastudio-production.up.railway.app

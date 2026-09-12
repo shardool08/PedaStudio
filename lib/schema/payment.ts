@@ -10,5 +10,5 @@ export interface PaymentDocument {
   amountPaise: number;
   orderId: string;
   paymentId: string;
-  createdAt: FirebaseFirestore.Timestamp;
+  createdAt: string;
 }

@@ -9,13 +9,28 @@ export const TIER_LABELS: Record<TierId, string> = {
   max: "Max",
 };
 
+/** App ships Grades 1–5 English only (Balbharati). */
+export const GRADES_APP = [1, 2, 3, 4, 5] as const;
+const GRADES_FULL = [1, 2, 3, 4, 5];
+
+/** Weekly AI usage caps (resets every Monday UTC). */
+export const BASIC_PLANS_PER_WEEK = 2;
+export const PRIME_PLANS_PER_WEEK = 6;
+export const MAX_PLANS_PER_WEEK = 6;
+export const PRIME_OCR_SCANS_PER_WEEK = 6;
+export const MAX_SCANS_PER_WEEK = 2;
+export const MAX_OCR_SCANS_PER_WEEK = 12;
+
+/** One-time Max trial for new teachers (days). */
+export const MAX_TRIAL_DAYS = 7;
+
 export interface TierLimits {
-  plansPerMonth: number | null;
-  worksheetsPerMonth: number | null;
-  scansPerMonth: number | null;
+  plansPerWeek: number | null;
+  worksheetsPerWeek: number | null;
+  scansPerWeek: number | null;
   maxClasses: number | null;
   maxStudentsPerClass: number;
-  ocrScansPerMonth: number | null;
+  ocrScansPerWeek: number | null;
 }
 
 export interface TierFeatures {
@@ -47,47 +62,43 @@ export interface TierFeatures {
   gradesAvailable: number[];
 }
 
-const GRADES_BASIC = [1, 2, 3];
-const GRADES_PRIME = [1, 2, 3, 4, 5];
-const GRADES_MAX = [1, 2, 3, 4, 5, 6, 7, 8];
-
 export const TIER_LIMITS: Record<TierId, TierLimits> = {
   basic: {
-    plansPerMonth: 20,
-    worksheetsPerMonth: 0,
-    scansPerMonth: 0,
+    plansPerWeek: BASIC_PLANS_PER_WEEK,
+    worksheetsPerWeek: 0,
+    scansPerWeek: 0,
     maxClasses: 1,
     maxStudentsPerClass: 45,
-    ocrScansPerMonth: 0,
+    ocrScansPerWeek: 0,
   },
   prime: {
-    plansPerMonth: null,
-    worksheetsPerMonth: 10,
-    scansPerMonth: 15,
-    maxClasses: 2,
+    plansPerWeek: PRIME_PLANS_PER_WEEK,
+    worksheetsPerWeek: null,
+    scansPerWeek: 0,
+    maxClasses: 1,
     maxStudentsPerClass: 45,
-    ocrScansPerMonth: 120,
+    ocrScansPerWeek: PRIME_OCR_SCANS_PER_WEEK,
   },
   max: {
-    plansPerMonth: null,
-    worksheetsPerMonth: null,
-    scansPerMonth: 60,
-    maxClasses: null,
+    plansPerWeek: MAX_PLANS_PER_WEEK,
+    worksheetsPerWeek: null,
+    scansPerWeek: MAX_SCANS_PER_WEEK,
+    maxClasses: 2,
     maxStudentsPerClass: 60,
-    ocrScansPerMonth: null,
+    ocrScansPerWeek: MAX_OCR_SCANS_PER_WEEK,
   },
 };
 
 export const TIER_FEATURES: Record<TierId, TierFeatures> = {
   basic: {
     unlimitedPlans: false,
-    planModesAlways: false,
+    planModesAlways: true,
     planModesAfterUnitTest: true,
     baselineAssessment: true,
     endlineAssessment: true,
     unitTests: true,
     manualAssessmentEntry: true,
-    fullAssessmentReports: true,
+    fullAssessmentReports: false,
     shortActionPlan: true,
     fullActionPlan: false,
     baselinePlanBand: true,
@@ -104,11 +115,11 @@ export const TIER_FEATURES: Record<TierId, TierFeatures> = {
     perStudentLongitudinal: false,
     abilityGroups: false,
     clusterExport: false,
-    hindiUrduUi: false,
-    gradesAvailable: GRADES_BASIC,
+    hindiUrduUi: true,
+    gradesAvailable: [...GRADES_FULL],
   },
   prime: {
-    unlimitedPlans: true,
+    unlimitedPlans: false,
     planModesAlways: true,
     planModesAfterUnitTest: true,
     baselineAssessment: true,
@@ -126,17 +137,17 @@ export const TIER_FEATURES: Record<TierId, TierFeatures> = {
     yearTlmPdfShare: true,
     bulkPaperScan: true,
     aiAutoMark: true,
-    reportPdfExport: true,
+    reportPdfExport: false,
     worksheets: true,
-    textbookScan: true,
+    textbookScan: false,
     perStudentLongitudinal: true,
     abilityGroups: false,
     clusterExport: false,
     hindiUrduUi: true,
-    gradesAvailable: GRADES_PRIME,
+    gradesAvailable: [...GRADES_FULL],
   },
   max: {
-    unlimitedPlans: true,
+    unlimitedPlans: false,
     planModesAlways: true,
     planModesAfterUnitTest: true,
     baselineAssessment: true,
@@ -161,7 +172,7 @@ export const TIER_FEATURES: Record<TierId, TierFeatures> = {
     abilityGroups: true,
     clusterExport: true,
     hindiUrduUi: true,
-    gradesAvailable: GRADES_MAX,
+    gradesAvailable: [...GRADES_FULL],
   },
 };
 
@@ -170,21 +181,32 @@ export function normalizeTierId(value: unknown): TierId {
   return "basic";
 }
 
-export function currentUsageMonth(): string {
+/** When set (e.g. PILOT_TIER=prime), all teachers get this tier from the API. Leave unset in production. */
+export function getPilotTierOverride(): TierId | null {
+  const raw = process.env.PILOT_TIER?.trim().toLowerCase();
+  if (raw === "basic" || raw === "prime" || raw === "max") return raw;
+  return null;
+}
+
+/** ISO date (YYYY-MM-DD) of the current week’s Monday, UTC. */
+export function currentUsageWeek(): string {
   const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  const day = now.getUTCDay();
+  const daysFromMonday = day === 0 ? 6 : day - 1;
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysFromMonday));
+  return monday.toISOString().slice(0, 10);
 }
 
 export type UsageCounterKey = "plans" | "worksheets" | "scans" | "ocrScans";
 
 export interface UsageSnapshot {
-  month: string;
+  week: string;
   plans: number;
   worksheets: number;
   scans: number;
   ocrScans: number;
 }
 
-export function emptyUsage(month = currentUsageMonth()): UsageSnapshot {
-  return { month, plans: 0, worksheets: 0, scans: 0, ocrScans: 0 };
+export function emptyUsage(week = currentUsageWeek()): UsageSnapshot {
+  return { week, plans: 0, worksheets: 0, scans: 0, ocrScans: 0 };
 }

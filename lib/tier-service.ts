@@ -1,9 +1,8 @@
-import { getFirestore } from "firebase-admin/firestore";
 import type { PlanMode } from "@/lib/plan-prompt";
 import {
-  currentUsageMonth,
   emptyUsage,
-  normalizeTierId,
+  getPilotTierOverride,
+  MAX_TRIAL_DAYS,
   TIER_FEATURES,
   TIER_LIMITS,
   TIER_LABELS,
@@ -13,7 +12,15 @@ import {
   type UsageCounterKey,
   type UsageSnapshot,
 } from "@/lib/tier-config";
-import { getAdminApp } from "@/lib/firebase/admin";
+import {
+  bumpUsage,
+  ensureTeacher,
+  getTeacher,
+  isTeacherStoreReady,
+  tierFromRecord,
+  updateTeacher,
+  usageFromRecord,
+} from "@/lib/supabase/teachers";
 
 export interface TeacherAccountSnapshot {
   tier: TierId;
@@ -22,6 +29,7 @@ export interface TeacherAccountSnapshot {
   features: TierFeatures;
   usage: UsageSnapshot;
   plansRemaining: number | null;
+  scansRemaining: number | null;
 }
 
 export class TierLimitError extends Error {
@@ -41,31 +49,17 @@ function isDevUid(uid: string): boolean {
   return uid === "dev-local";
 }
 
-function getDb() {
-  const app = getAdminApp();
-  if (!app) return null;
-  return getFirestore(app);
-}
-
-function mergeUsage(raw: Record<string, unknown> | undefined): UsageSnapshot {
-  const month = currentUsageMonth();
-  if (!raw || raw.month !== month) return emptyUsage(month);
-  return {
-    month,
-    plans: Number(raw.plans) || 0,
-    worksheets: Number(raw.worksheets) || 0,
-    scans: Number(raw.scans) || 0,
-    ocrScans: Number(raw.ocrScans) || 0,
-  };
-}
-
 export async function getTeacherAccount(uid: string): Promise<TeacherAccountSnapshot> {
-  const tier = await readTier(uid);
+  await ensureMaxTrial(uid);
+  const record = isDevUid(uid) ? null : await getTeacher(uid);
+  const tier = resolveTier(uid, record);
   const limits = TIER_LIMITS[tier];
   const features = TIER_FEATURES[tier];
-  const usage = await readUsage(uid);
+  const usage = isDevUid(uid) ? emptyUsage() : usageFromRecord(record);
   const plansRemaining =
-    limits.plansPerMonth === null ? null : Math.max(0, limits.plansPerMonth - usage.plans);
+    limits.plansPerWeek === null ? null : Math.max(0, limits.plansPerWeek - usage.plans);
+  const scansRemaining =
+    limits.scansPerWeek === null ? null : Math.max(0, limits.scansPerWeek - usage.scans);
 
   return {
     tier,
@@ -74,28 +68,50 @@ export async function getTeacherAccount(uid: string): Promise<TeacherAccountSnap
     features,
     usage,
     plansRemaining,
+    scansRemaining,
   };
 }
 
-async function readTier(uid: string): Promise<TierId> {
+function resolveTier(uid: string, record: Awaited<ReturnType<typeof getTeacher>>): TierId {
+  const pilotTier = getPilotTierOverride();
+  if (pilotTier) return pilotTier;
   if (isDevUid(uid)) return "prime";
-  const db = getDb();
-  if (!db) return "basic";
-  const snap = await db.collection("users").doc(uid).get();
-  if (!snap.exists) return "basic";
-  const data = snap.data();
-  const expiresAt = data?.tierExpiresAt?.toDate?.() as Date | undefined;
-  if (expiresAt && expiresAt.getTime() < Date.now()) return "basic";
-  return normalizeTierId(data?.tier);
+  return tierFromRecord(record);
 }
 
-async function readUsage(uid: string): Promise<UsageSnapshot> {
-  if (isDevUid(uid)) return emptyUsage();
-  const db = getDb();
-  if (!db) return emptyUsage();
-  const snap = await db.collection("users").doc(uid).get();
-  if (!snap.exists) return emptyUsage();
-  return mergeUsage(snap.data()?.usage as Record<string, unknown> | undefined);
+/** One-time 7-day Max trial for teachers who have not paid yet. */
+export async function ensureMaxTrial(uid: string): Promise<void> {
+  if (isDevUid(uid) || getPilotTierOverride() || !isTeacherStoreReady()) return;
+
+  const record = await ensureTeacher(uid);
+  if (!record || record.max_trial_used) return;
+
+  const now = Date.now();
+  const tierExpiresAt = record.tier_expires_at ? new Date(record.tier_expires_at).getTime() : null;
+
+  // Already paying: burn the trial flag so they never get a free extension later.
+  if (record.razorpay_payment_id && tierExpiresAt && tierExpiresAt > now) {
+    await updateTeacher(uid, { max_trial_used: true });
+    return;
+  }
+
+  if (record.sub_status === "pending") return;
+
+  const started = new Date();
+  const expiresAt = new Date(started);
+  expiresAt.setUTCDate(expiresAt.getUTCDate() + MAX_TRIAL_DAYS);
+
+  await updateTeacher(uid, {
+    tier: "max",
+    tier_expires_at: expiresAt.toISOString(),
+    max_trial_used: true,
+    sub_status: "active",
+    sub_plan_id: "max_trial",
+    sub_billing_cycle: null,
+    sub_tier: "max",
+    sub_started_at: started.toISOString(),
+    sub_expires_at: expiresAt.toISOString(),
+  });
 }
 
 export async function assertPlanGenerationAllowed(
@@ -119,12 +135,13 @@ export async function assertPlanGenerationAllowed(
     }
   }
 
-  if (limits.plansPerMonth !== null && usage.plans >= limits.plansPerMonth) {
+  if (limits.plansPerWeek !== null && usage.plans >= limits.plansPerWeek) {
+    const upgrade = account.tier === "basic" ? "prime" : "max";
     throw new TierLimitError(
-      `Basic includes ${limits.plansPerMonth} lesson plans per month. Upgrade to Prime for unlimited plans.`,
+      `Weekly lesson plan limit reached (${limits.plansPerWeek} per week). Resets every Monday, or upgrade to ${TIER_LABELS[upgrade]}.`,
       "PLAN_LIMIT_REACHED",
       429,
-      "prime",
+      upgrade,
     );
   }
 
@@ -149,13 +166,13 @@ export async function assertFeatureAllowed(
 }
 
 const LIMIT_KEY_MAP: Record<UsageCounterKey, keyof TierLimits> = {
-  plans: "plansPerMonth",
-  worksheets: "worksheetsPerMonth",
-  scans: "scansPerMonth",
-  ocrScans: "ocrScansPerMonth",
+  plans: "plansPerWeek",
+  worksheets: "worksheetsPerWeek",
+  scans: "scansPerWeek",
+  ocrScans: "ocrScansPerWeek",
 };
 
-export async function assertMonthlyUsageAllowed(
+export async function assertWeeklyUsageAllowed(
   uid: string,
   key: UsageCounterKey,
   upgradeTier: TierId = "prime",
@@ -173,7 +190,7 @@ export async function assertMonthlyUsageAllowed(
             ? "OCR scans"
             : "plans";
     throw new TierLimitError(
-      `Monthly ${label} limit reached (${limit}). Upgrade for more.`,
+      `Weekly ${label} limit reached (${limit} per week). Resets every Monday, or upgrade for more.`,
       "USAGE_LIMIT_REACHED",
       429,
       upgradeTier,
@@ -182,27 +199,42 @@ export async function assertMonthlyUsageAllowed(
   return account;
 }
 
+/** @deprecated Use assertWeeklyUsageAllowed */
+export const assertMonthlyUsageAllowed = assertWeeklyUsageAllowed;
+
+/** Prime: one worksheet per lesson plan/week. Max: unlimited. */
+export async function assertWorksheetAllowed(uid: string): Promise<TeacherAccountSnapshot> {
+  const account = await assertFeatureAllowed(uid, "worksheets", "prime");
+  if (account.tier === "max") return account;
+
+  const { limits, usage, tier } = account;
+
+  if (limits.worksheetsPerWeek !== null && usage.worksheets >= limits.worksheetsPerWeek) {
+    throw new TierLimitError(
+      `Weekly worksheet limit reached (${limits.worksheetsPerWeek}). Resets every Monday.`,
+      "USAGE_LIMIT_REACHED",
+      429,
+      tier === "prime" ? "max" : "prime",
+    );
+  }
+
+  if (limits.worksheetsPerWeek === null) {
+    if (usage.plans === 0 || usage.worksheets >= usage.plans) {
+      throw new TierLimitError(
+        "Includes one worksheet with each lesson plan this week. Create a lesson plan first.",
+        "USAGE_LIMIT_REACHED",
+        429,
+        tier === "prime" ? "max" : "prime",
+      );
+    }
+  }
+
+  return account;
+}
+
 export async function incrementUsage(uid: string, key: UsageCounterKey, by = 1): Promise<void> {
   if (isDevUid(uid)) return;
-  const db = getDb();
-  if (!db) return;
-
-  const ref = db.collection("users").doc(uid);
-  const month = currentUsageMonth();
-
-  await db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const usage = mergeUsage(snap.data()?.usage as Record<string, unknown> | undefined);
-    if (usage.month !== month) {
-      usage.month = month;
-      usage.plans = 0;
-      usage.worksheets = 0;
-      usage.scans = 0;
-      usage.ocrScans = 0;
-    }
-    usage[key] += by;
-    tx.set(ref, { usage }, { merge: true });
-  });
+  await bumpUsage(uid, key, by);
 }
 
 export function accountToJson(account: TeacherAccountSnapshot) {
@@ -213,5 +245,6 @@ export function accountToJson(account: TeacherAccountSnapshot) {
     features: account.features,
     usage: account.usage,
     plansRemaining: account.plansRemaining,
+    scansRemaining: account.scansRemaining,
   };
 }

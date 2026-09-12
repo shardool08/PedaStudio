@@ -21,7 +21,7 @@ users/{uid}                 — teacher profile + account fields
 Clients cannot write these on `users/{uid}`:
 
 - `tier`, `tierExpiresAt`
-- `usage` — `{ month, plans, worksheets, scans, ocrScans }`
+- `usage` — `{ week, plans, worksheets, scans, ocrScans }` (resets every Monday UTC)
 - `subscription`
 
 ## Setup commands

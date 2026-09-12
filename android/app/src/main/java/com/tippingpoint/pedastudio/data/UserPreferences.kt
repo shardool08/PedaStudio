@@ -86,9 +86,27 @@ class UserPreferences(context: Context) {
         get() = prefs.getInt("cachedPlansRemaining", 20)
         set(value) = prefs.edit().putInt("cachedPlansRemaining", value).apply()
 
-    fun applyTeacherAccount(account: TeacherAccount) {
+    var profilePhotoUri: String
+        get() = prefs.getString("profilePhotoUri", "") ?: ""
+        set(value) = prefs.edit().putString("profilePhotoUri", value).apply()
+
+    var pendingScanLinkId: String
+        get() = prefs.getString("pendingScanLinkId", "") ?: ""
+        set(value) = prefs.edit().putString("pendingScanLinkId", value).apply()
+
+    fun loadCachedTeacherAccount(): com.tippingpoint.pedastudio.data.TeacherAccount? {
+        val raw = prefs.getString("cachedTeacherAccount", null) ?: return null
+        return runCatching {
+            com.tippingpoint.pedastudio.api.AccountApiClient.parseAccount(org.json.JSONObject(raw))
+        }.getOrNull()
+    }
+
+    fun applyTeacherAccount(account: com.tippingpoint.pedastudio.data.TeacherAccount) {
         cachedTier = account.tier.key
         cachedPlansRemaining = account.plansRemaining ?: 999
+        prefs.edit()
+            .putString("cachedTeacherAccount", com.tippingpoint.pedastudio.api.AccountApiClient.accountToJson(account).toString())
+            .apply()
     }
 
     fun getTeacherGrades(): List<Int> = readIntList("teacherGrades", listOf(1))

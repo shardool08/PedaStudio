@@ -90,6 +90,12 @@ export async function requireAdmin(
     );
   }
 
+  const authHeader = req?.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const bearer = authHeader.slice("Bearer ".length);
+    if (verifyAdminPassword(bearer)) return null;
+  }
+
   const token =
     req?.cookies.get(COOKIE_NAME)?.value ??
     (await cookies()).get(COOKIE_NAME)?.value;

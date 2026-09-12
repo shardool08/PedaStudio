@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -22,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -45,11 +47,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import coil.compose.AsyncImage
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tippingpoint.pedastudio.data.TierConfig
 import com.tippingpoint.pedastudio.ui.theme.AccentTeal
 import com.tippingpoint.pedastudio.ui.theme.BgTint
 import com.tippingpoint.pedastudio.ui.theme.NavBg
@@ -262,38 +267,78 @@ fun ProfileHeroHeader(
     name: String,
     phone: String,
     school: String,
+    tier: TierConfig.TierId? = null,
+    photoUri: String? = null,
+    onEditPhoto: (() -> Unit)? = null,
 ) {
     Surface(modifier = Modifier.fillMaxWidth(), color = NavBg) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .clip(CircleShape)
-                    .background(AccentTeal),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(initials, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-            }
-            Text(name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = PrimaryDark, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (phone.isNotBlank()) {
-                Text("+91 $phone", fontSize = 14.sp, color = PrimarySteel.copy(0.75f))
-            }
-            if (school.isNotBlank()) {
-                Text(
-                    school,
-                    fontSize = 14.sp,
-                    color = PrimarySteel.copy(0.75f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 8.dp),
+            if (tier != null) {
+                TierBadge(
+                    tier = tier,
+                    modifier = Modifier.align(Alignment.TopEnd),
                 )
+            }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    Box(
+                        modifier = Modifier
+                            .size(88.dp)
+                            .clip(CircleShape)
+                            .then(
+                                if (onEditPhoto != null) Modifier.clickable(onClick = onEditPhoto)
+                                else Modifier
+                            )
+                            .background(AccentTeal),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (!photoUri.isNullOrBlank()) {
+                            AsyncImage(
+                                model = photoUri,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                            )
+                        } else {
+                            Text(initials, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (onEditPhoto != null) {
+                        IconButton(
+                            onClick = onEditPhoto,
+                            modifier = Modifier
+                                .offset(x = 4.dp, y = 4.dp)
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color.White),
+                        ) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = null, tint = AccentTeal, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
+                Text(name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = PrimaryDark, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (phone.isNotBlank()) {
+                    Text("+91 $phone", fontSize = 14.sp, color = PrimarySteel.copy(0.75f))
+                }
+                if (school.isNotBlank()) {
+                    Text(
+                        school,
+                        fontSize = 14.sp,
+                        color = PrimarySteel.copy(0.75f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    )
+                }
             }
         }
     }

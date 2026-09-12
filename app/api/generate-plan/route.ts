@@ -8,8 +8,6 @@ import {
   assertPlanGenerationAllowed,
   incrementUsage,
   TierLimitError,
-  accountToJson,
-  getTeacherAccount,
 } from "@/lib/tier-service";
 
 export const maxDuration = 120;
@@ -32,6 +30,9 @@ export async function POST(req: NextRequest) {
     const planMode: PlanMode =
       mode === "practice" || mode === "reteach" || mode === "continue" ? mode : null;
 
+    const assessmentReteachNotes =
+      typeof body.assessmentReteachNotes === "string" ? body.assessmentReteachNotes : undefined;
+
     let account;
     try {
       account = await assertPlanGenerationAllowed(
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
             error: err.message,
             code: err.code,
             upgradeTier: err.upgradeTier,
-            account: accountToJson(await getAccountWithSubscription(auth.uid)),
+            account: await getAccountWithSubscription(auth.uid),
           },
           { status: err.status },
         );
@@ -58,10 +59,10 @@ export async function POST(req: NextRequest) {
     if (!account.features.gradesAvailable.includes(lessonGrade)) {
       return NextResponse.json(
         {
-          error: `Grade ${lessonGrade} English requires ${lessonGrade <= 3 ? "Prime" : "Max"}.`,
+          error: `Grade ${lessonGrade} requires a higher plan.`,
           code: "GRADE_LOCKED",
-          upgradeTier: lessonGrade <= 5 ? "prime" : "max",
-          account: accountToJson(account),
+          upgradeTier: "prime",
+          account: await getAccountWithSubscription(auth.uid),
         },
         { status: 403 },
       );
@@ -75,10 +76,9 @@ export async function POST(req: NextRequest) {
     const dayNum = day || 1;
     const prompt =
       customPrompt ||
-      buildPlanPrompt(lesson, dayNum, selections || {}, teacherProfile || {}, planMode);
+      buildPlanPrompt(lesson, dayNum, selections || {}, teacherProfile || {}, planMode, assessmentReteachNotes);
 
     const result = await anthropicMessages({
-      model: "claude-sonnet-4-20250514",
       max_tokens: 4096,
       messages: [{ role: "user", content: prompt }],
     });

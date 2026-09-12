@@ -23,6 +23,7 @@ import com.tippingpoint.pedastudio.data.FirestoreRepository
 import com.tippingpoint.pedastudio.data.FlashcardRepository
 import com.tippingpoint.pedastudio.data.MaharashtraRepository
 import com.tippingpoint.pedastudio.data.PlanStorage
+import com.tippingpoint.pedastudio.data.ScanStorage
 import com.tippingpoint.pedastudio.billing.RazorpayPaymentHandler
 import com.tippingpoint.pedastudio.data.TeacherAccount
 import com.tippingpoint.pedastudio.data.TierConfig
@@ -45,7 +46,9 @@ import com.tippingpoint.pedastudio.ui.screens.ScanScreen
 import com.tippingpoint.pedastudio.ui.screens.SubscriptionScreen
 import com.tippingpoint.pedastudio.ui.screens.TlmKitScreen
 import com.tippingpoint.pedastudio.ui.screens.WorksheetScreen
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun PedaStudioApp(
@@ -58,6 +61,7 @@ fun PedaStudioApp(
     val curriculum = remember { CurriculumRepository(context.applicationContext) }
     val maharashtra = remember { MaharashtraRepository(context.applicationContext) }
     val planStorage = remember { PlanStorage(context.applicationContext) }
+    val scanStorage = remember { ScanStorage(context.applicationContext) }
     val flashcards = remember { FlashcardRepository(context.applicationContext) }
     val tlmCatalog = remember { TlmResourceCatalog(context.applicationContext) }
     val assessmentRepo = remember { AssessmentRepository(context.applicationContext) }
@@ -65,7 +69,9 @@ fun PedaStudioApp(
     val nav = rememberNavController()
     var language by remember { mutableStateOf(prefs.language) }
     var plansRevision by remember { mutableIntStateOf(0) }
-    var teacherAccount by remember { mutableStateOf(TierConfig.defaultAccount()) }
+    var teacherAccount by remember {
+        mutableStateOf(prefs.loadCachedTeacherAccount() ?: TierConfig.defaultAccount())
+    }
 
     LaunchedEffect(auth.isLoggedIn) {
         if (!auth.isLoggedIn) return@LaunchedEffect
@@ -76,7 +82,13 @@ fun PedaStudioApp(
             }
             firestore.syncAllPlans(planStorage).onSuccess { plansRevision++ }
             tlmCatalog.applyRemoteImageUrls(firestore.loadTlmImageUrls())
-            val account = AccountApiClient.fetchAccount(auth.getIdToken()).getOrNull()
+            val cached = prefs.loadCachedTeacherAccount()
+            if (cached != null) teacherAccount = cached
+            val idToken = auth.getIdToken()
+            // AccountApiClient blocks on OkHttp, so it must not run on the Compose main thread.
+            val account = withContext(Dispatchers.IO) {
+                AccountApiClient.fetchAccount(idToken, cached).getOrNull()
+            }
             if (account != null) {
                 teacherAccount = account
                 prefs.applyTeacherAccount(account)
@@ -223,8 +235,8 @@ fun PedaStudioApp(
                     highlightTier = highlight,
                     onBack = { nav.popBackStack() },
                     onAccountUpdated = { account ->
-                        teacherAccount = account
-                        prefs.applyTeacherAccount(account)
+                        teacherAccount = AccountApiClient.mergeAccountUpdate(teacherAccount, account)
+                        prefs.applyTeacherAccount(teacherAccount)
                     },
                 )
             }
@@ -250,6 +262,7 @@ fun PedaStudioApp(
                     navArgument("day") { type = NavType.IntType; defaultValue = 1 },
                     navArgument("mode") { type = NavType.StringType; defaultValue = "" },
                     navArgument("reteachNotes") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("afterUnitTest") { type = NavType.BoolType; defaultValue = false },
                 ),
             ) { entry ->
                 val rawId = entry.arguments?.getString("lessonId")
@@ -261,11 +274,13 @@ fun PedaStudioApp(
                 val day = entry.arguments?.getInt("day") ?: 1
                 val mode = entry.arguments?.getString("mode").orEmpty()
                 val reteachNotes = entry.arguments?.getString("reteachNotes")?.let { Uri.decode(it) }.orEmpty()
+                val afterUnitTest = entry.arguments?.getBoolean("afterUnitTest") ?: false
                 QuickPlanScreen(
                     lessonId = lessonId,
                     initialDay = day,
                     planningMode = mode,
                     initialReteachNotes = reteachNotes,
+                    afterUnitTest = afterUnitTest,
                     prefs = prefs,
                     curriculum = curriculum,
                     planStorage = planStorage,
@@ -274,12 +289,16 @@ fun PedaStudioApp(
                     auth = auth,
                     teacherAccount = teacherAccount,
                     onAccountUpdated = { account ->
-                        teacherAccount = account
-                        prefs.applyTeacherAccount(account)
+                        teacherAccount = AccountApiClient.mergeAccountUpdate(teacherAccount, account)
+                        prefs.applyTeacherAccount(teacherAccount)
                     },
                     onUpgrade = { nav.navigate(Routes.subscription("prime")) },
                     onBack = { nav.popBackStack() },
                     onPlanReady = { id, readyDay ->
+                        prefs.pendingScanLinkId.takeIf { it.isNotBlank() }?.let { scanId ->
+                            scanStorage.linkPlan(scanId, id, readyDay)
+                            prefs.pendingScanLinkId = ""
+                        }
                         prefs.setCurrentLesson(prefs.lastViewedGrade, prefs.lastViewedSubject, id)
                         plansRevision++
                         nav.navigate(Routes.planView(id, readyDay)) {
@@ -370,19 +389,35 @@ fun PedaStudioApp(
                     lessonId = lessonId,
                     prefs = prefs,
                     curriculum = curriculum,
+                    assessmentRepo = assessmentRepo,
                     tlmCatalog = tlmCatalog,
                     planStorage = planStorage,
+                    scanStorage = scanStorage,
                     auth = auth,
                     teacherAccount = teacherAccount,
                     onBack = { nav.popBackStack() },
-                    onUpgrade = { nav.navigate(Routes.subscription("prime")) },
+                    onUpgrade = { nav.navigate(Routes.subscription("max")) },
                     onAccountUpdated = { account ->
-                        teacherAccount = account
-                        prefs.applyTeacherAccount(account)
+                        teacherAccount = AccountApiClient.mergeAccountUpdate(teacherAccount, account)
+                        prefs.applyTeacherAccount(teacherAccount)
                     },
                     onOpenWorksheet = { id, day -> nav.navigate(Routes.worksheet(id, day)) },
-                    onOpenQuickPlan = { id, day -> nav.navigate(Routes.quickPlan(id, day, "", "")) },
+                    onOpenQuickPlan = { id, day, scanId ->
+                        prefs.pendingScanLinkId = scanId
+                        nav.navigate(Routes.quickPlan(id, day, "", ""))
+                    },
+                    onViewPlan = { id, day -> nav.navigate(Routes.planView(id, day)) },
                     onOpenTlmKit = { unit -> nav.navigate(Routes.tlmKit(prefs.lastViewedGrade, unit)) },
+                    onOpenAssessment = { type, groupId, groupName ->
+                        nav.navigate(
+                            Routes.assessmentEntry(
+                                prefs.lastViewedGrade,
+                                type,
+                                groupId ?: "_",
+                                groupName ?: "_",
+                            ),
+                        )
+                    },
                 )
             }
             composable(
@@ -408,8 +443,8 @@ fun PedaStudioApp(
                     onBack = { nav.popBackStack() },
                     onUpgrade = { nav.navigate(Routes.subscription("prime")) },
                     onAccountUpdated = { account ->
-                        teacherAccount = account
-                        prefs.applyTeacherAccount(account)
+                        teacherAccount = AccountApiClient.mergeAccountUpdate(teacherAccount, account)
+                        prefs.applyTeacherAccount(teacherAccount)
                     },
                 )
             }
@@ -440,6 +475,7 @@ fun PedaStudioApp(
                 val grade = entry.arguments?.getInt("grade") ?: prefs.lastViewedGrade
                 AssessmentHubScreen(
                     grade = grade,
+                    subject = prefs.lastViewedSubject,
                     prefs = prefs,
                     curriculum = curriculum,
                     assessmentRepo = assessmentRepo,
@@ -450,8 +486,8 @@ fun PedaStudioApp(
                         nav.navigate(Routes.assessmentEntry(grade, type, groupId ?: "_", groupName ?: "_"))
                     },
                     onAccountUpdated = { account ->
-                        teacherAccount = account
-                        prefs.applyTeacherAccount(account)
+                        teacherAccount = AccountApiClient.mergeAccountUpdate(teacherAccount, account)
+                        prefs.applyTeacherAccount(teacherAccount)
                     },
                 )
             }
@@ -473,14 +509,19 @@ fun PedaStudioApp(
                     groupId = groupId,
                     groupName = groupName,
                     grade = grade,
+                    subject = prefs.lastViewedSubject,
                     prefs = prefs,
                     auth = auth,
                     teacherAccount = teacherAccount,
                     onBack = { nav.popBackStack() },
                     onSaved = { nav.popBackStack() },
+                    onPlanReteach = { lessonId, notes, afterUnitTest ->
+                        nav.navigate(Routes.quickPlan(lessonId, 1, "reteach", notes, afterUnitTest))
+                    },
+                    onUpgrade = { nav.navigate(Routes.subscription()) },
                     onAccountUpdated = { account ->
-                        teacherAccount = account
-                        prefs.applyTeacherAccount(account)
+                        teacherAccount = AccountApiClient.mergeAccountUpdate(teacherAccount, account)
+                        prefs.applyTeacherAccount(teacherAccount)
                     },
                 )
             }

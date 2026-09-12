@@ -318,6 +318,7 @@ private fun UserPreferences.toFirestoreMap(): Map<String, Any?> {
         "teacherResources" to getTeacherResources(),
         "currentLessons" to currentLessons,
         "profileComplete" to profileComplete,
+        "profilePhotoUri" to profilePhotoUri.takeIf { it.isNotBlank() },
         "updatedAt" to FieldValue.serverTimestamp(),
     )
 }
@@ -344,7 +345,7 @@ fun UserPreferences.applyFromFirestore(data: Map<String, Any?>) {
     (data["teacherSubjects"] as? List<*>)?.mapNotNull { it as? String }?.let { setTeacherSubjects(it) }
     (data["teacherResources"] as? List<*>)?.mapNotNull { it as? String }?.let { setTeacherResources(it) }
     (data["profileComplete"] as? Boolean)?.let { profileComplete = it }
-    (data["tier"] as? String)?.let { cachedTier = it }
+    (data["profilePhotoUri"] as? String)?.let { profilePhotoUri = it }
     (data["currentLessons"] as? Map<*, *>)?.forEach { (k, v) ->
         val key = k as? String ?: return@forEach
         val lessonId = v as? String ?: return@forEach

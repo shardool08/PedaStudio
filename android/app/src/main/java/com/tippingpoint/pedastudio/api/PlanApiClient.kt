@@ -30,6 +30,7 @@ object PlanApiClient {
         idToken: String?,
         mode: String = "",
         reteachNotes: String = "",
+        afterUnitTest: Boolean = false,
     ): Result<PlanGenerationResult> {
         val base = BuildConfig.API_BASE_URL.trimEnd('/')
         if (base.isBlank()) {
@@ -74,6 +75,12 @@ object PlanApiClient {
             if (mode == "practice" || mode == "reteach" || mode == "continue") {
                 put("mode", mode)
             }
+            if (afterUnitTest) {
+                put("afterUnitTest", true)
+            }
+            if (reteachNotes.isNotBlank()) {
+                put("assessmentReteachNotes", reteachNotes.trim())
+            }
         }
 
         val requestBuilder = Request.Builder()
@@ -111,9 +118,16 @@ object PlanApiClient {
                         403, 429 -> serverError.ifBlank { "This feature needs a higher plan." }
                         503 -> when {
                             serverError.contains("API key", ignoreCase = true) ->
-                                "Server missing Claude API key. Redeploy App Hosting after setting ANTHROPIC_API_KEY secret."
+                                "Server missing Claude API key. In Railway → Variables, set ANTHROPIC_API_KEY and redeploy."
                             serverError.isNotBlank() && serverError.length < 200 -> serverError
                             else -> "Plan service is starting up. Wait a minute and try again."
+                        }
+                        404 -> when {
+                            serverError.contains("model", ignoreCase = true) ||
+                                serverError.contains("not_found", ignoreCase = true) ->
+                                "$serverError Check ANTHROPIC_MODEL on Railway, then redeploy."
+                            serverError.isNotBlank() && serverError.length < 240 -> serverError
+                            else -> "Server error 404: $serverError"
                         }
                         else -> "Server error ${response.code}: $serverError"
                     }
@@ -145,14 +159,15 @@ object PlanApiClient {
             message.contains("timeout", ignoreCase = true)
 
     private fun buildConnectionHelp(base: String): String {
-        val isProduction = base.contains("hosted.app", ignoreCase = true) ||
+        val isProduction = base.contains("railway.app", ignoreCase = true) ||
+            base.contains("hosted.app", ignoreCase = true) ||
             base.contains("firebaseapp.com", ignoreCase = true)
         val usingEmulatorHost = base.contains("10.0.2.2")
         return buildString {
             append("Cannot reach plan server at $base. ")
             if (isProduction) {
                 append("The cloud API may be restarting — wait 30 seconds and try again. ")
-                append("If it keeps failing, check Firebase Console → App Hosting → pedastudio-api for errors.")
+                append("If it keeps failing, check Railway → Deployments / Logs.")
             } else {
                 append("On your PC run: npm run dev (must stay open). ")
                 if (usingEmulatorHost) {

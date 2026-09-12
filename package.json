@@ -17,11 +17,14 @@
     "apphosting:build": "next build",
     "firebase:deploy-rules": "firebase deploy --only firestore:rules,storage",
     "firebase:deploy-api": "firebase deploy --only \"apphosting:pedastudio-api\" --project pedastudio-d6b2a",
-    "tier:set": "node scripts/set-teacher-tier.mjs"
+    "tier:set": "node scripts/set-teacher-tier.mjs",
+    "razorpay:secrets": "node scripts/set-razorpay-secrets.mjs",
+    "supabase:schema": "node scripts/apply-supabase-schema.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "firebase-admin": "^13.10.0",
-    "next": "15.5.7",
+    "next": "^15.5.25",
     "react": "19.0.1",
     "react-dom": "19.0.1"
   },

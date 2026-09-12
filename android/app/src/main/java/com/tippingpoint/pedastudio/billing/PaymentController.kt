@@ -24,9 +24,9 @@ class RazorpayPaymentHandler(private val activity: Activity) {
         runCatching { Checkout.preload(activity.applicationContext) }
     }
 
-    fun startCheckout(order: CheckoutOrder, onResult: (Result<PaymentResult>) -> Unit) {
+    fun startCheckout(order: CheckoutOrder, fallbackKeyId: String? = null, onResult: (Result<PaymentResult>) -> Unit) {
         ensurePreloaded()
-        val keyId = order.keyId
+        val keyId = order.keyId?.takeIf { it.isNotBlank() } ?: fallbackKeyId
         if (keyId.isNullOrBlank()) {
             onResult(Result.failure(IllegalStateException("Payment key not configured")))
             return
@@ -41,7 +41,10 @@ class RazorpayPaymentHandler(private val activity: Activity) {
             put("order_id", order.orderId)
             put("currency", order.currency)
             put("amount", order.amountPaise)
-            put("prefill", JSONObject().apply { put("name", order.prefillName) })
+            put("prefill", JSONObject().apply {
+                put("name", order.prefillName)
+                if (order.prefillContact.isNotBlank()) put("contact", order.prefillContact)
+            })
             put("theme", JSONObject().apply { put("color", "#2A7A6A") })
         }
         checkout.open(activity, options)

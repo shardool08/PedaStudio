@@ -26,7 +26,8 @@ object SubscriptionApiClient {
             client.newCall(Request.Builder().url(url).get().build()).execute().use { response ->
                 val text = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    return Result.failure(Exception("Could not load plans"))
+                    val snippet = text.take(120).ifBlank { "HTTP ${response.code}" }
+                    return Result.failure(Exception("Could not load plans ($snippet)"))
                 }
                 Result.success(parseCatalog(JSONObject(text)))
             }
@@ -35,11 +36,12 @@ object SubscriptionApiClient {
         }
     }
 
-    fun createOrder(planId: String, teacherName: String, idToken: String?): Result<CheckoutOrder> {
+    fun createOrder(planId: String, teacherName: String, teacherPhone: String, idToken: String?): Result<CheckoutOrder> {
         val url = "${base()}/api/subscription/create-order"
         val body = JSONObject().apply {
             put("planId", planId)
             put("teacherName", teacherName)
+            put("teacherPhone", teacherPhone)
         }
         val builder = Request.Builder()
             .url(url)
@@ -107,9 +109,11 @@ object SubscriptionApiClient {
     private fun parseCatalog(json: JSONObject): SubscriptionCatalog {
         val marketingArr = json.optJSONArray("marketing") ?: JSONArray()
         val plansArr = json.optJSONArray("plans") ?: JSONArray()
+        val comparisonArr = json.optJSONArray("comparison") ?: JSONArray()
         return SubscriptionCatalog(
             paymentsEnabled = json.optBoolean("paymentsEnabled", false),
             razorpayKeyId = json.optString("razorpayKeyId").takeIf { it.isNotBlank() },
+            razorpayTestMode = json.optBoolean("razorpayTestMode", false),
             supportWhatsApp = json.optString("supportWhatsApp", "919876543210"),
             supportEmail = json.optString("supportEmail", "support@pedastudio.in"),
             marketing = (0 until marketingArr.length()).mapNotNull { i ->
@@ -123,6 +127,15 @@ object SubscriptionApiClient {
                     badge = o.optString("badge").takeIf { it.isNotBlank() },
                 )
             },
+            comparison = (0 until comparisonArr.length()).mapNotNull { i ->
+                val o = comparisonArr.optJSONObject(i) ?: return@mapNotNull null
+                TierComparisonRow(
+                    feature = o.optString("feature"),
+                    basic = o.optString("basic"),
+                    prime = o.optString("prime"),
+                    max = o.optString("max"),
+                )
+            },
             plans = (0 until plansArr.length()).mapNotNull { i ->
                 val o = plansArr.optJSONObject(i) ?: return@mapNotNull null
                 PaidPlanOffer(
@@ -133,6 +146,9 @@ object SubscriptionApiClient {
                     amountPaise = o.optInt("amountPaise"),
                     periodLabel = o.optString("periodLabel"),
                     savingsInr = if (o.has("savingsInr") && !o.isNull("savingsInr")) o.optInt("savingsInr") else null,
+                    monthlyEquivalentInr = if (o.has("monthlyEquivalentInr") && !o.isNull("monthlyEquivalentInr")) {
+                        o.optInt("monthlyEquivalentInr")
+                    } else null,
                 )
             },
         )
@@ -149,6 +165,7 @@ object SubscriptionApiClient {
             planId = plan?.optString("id") ?: json.optString("planId"),
             planLabel = plan?.optString("label") ?: "PedaStudio",
             prefillName = json.optJSONObject("prefill")?.optString("name").orEmpty(),
+            prefillContact = json.optJSONObject("prefill")?.optString("contact").orEmpty(),
         )
     }
 

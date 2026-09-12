@@ -12,12 +12,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const planId = body.planId as string;
     const teacherName = body.teacherName as string | undefined;
+    const teacherPhone = body.teacherPhone as string | undefined;
 
     if (!planId) {
       return NextResponse.json({ error: "Missing planId" }, { status: 400 });
     }
 
-    const order = await createRazorpayOrder(auth.uid, planId, teacherName);
+    const order = await createRazorpayOrder(auth.uid, planId, teacherName, teacherPhone);
     return NextResponse.json(order);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not create order";

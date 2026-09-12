@@ -130,6 +130,9 @@ data class ProfileStrings(
     val changeLanguage: String,
     val accountSettings: String,
     val saveProfile: String,
+    val changePhoto: String,
+    val takePhoto: String,
+    val chooseFromGallery: String,
 )
 
 data class PlanStrings(
@@ -198,6 +201,7 @@ data class TierStrings(
     val tierCurrentPlan: String,
     val tierPlansRemaining: String,
     val tierPlansUnlimited: String,
+    val tierScansRemaining: String,
     val tierUpgradeHint: String,
     val tierGradeLocked: String,
 )
@@ -209,11 +213,14 @@ data class SubscriptionStrings(
     val subBasicTagline: String,
     val subPrimeTagline: String,
     val subMaxTagline: String,
+    val subTrialActive: String,
     val subRenewsOn: String,
     val subMonthly: String,
     val subYearlySave: String,
     val subFreeForever: String,
     val subCurrentPlan: String,
+    val subIncludedInPlan: String,
+    val subYearlyEquivalent: String,
     val subMostPopular: String,
     val subSubscribePrime: String,
     val subSubscribeMax: String,
@@ -221,6 +228,7 @@ data class SubscriptionStrings(
     val subUpgrade: String,
     val subManagePlan: String,
     val subLoadError: String,
+    val subCatalogOffline: String,
     val subPlanUnavailable: String,
     val subPaymentSuccess: String,
     val subPaymentFailed: String,
@@ -228,6 +236,7 @@ data class SubscriptionStrings(
     val subWhatsAppSupport: String,
     val subWhatsAppPrefill: String,
     val subSaveInr: String,
+    val subCompareTitle: String,
 )
 
 data class ScanStrings(
@@ -239,17 +248,26 @@ data class ScanStrings(
     val scanAnalyzing: String,
     val scanError: String,
     val scanImageError: String,
+    val scanImageTooLarge: String,
     val scanLocked: String,
+    val scanLimitReached: String,
     val scanResultTitle: String,
     val scanResultsTitle: String,
     val scanOpenCamera: String,
     val scanCameraHint: String,
     val scanCameraCancelled: String,
+    val scanCameraPermission: String,
     val scanCaptureAgain: String,
     val scanCreatePlan: String,
     val scanNextSteps: String,
     val scanVocabulary: String,
     val scanSuggested: String,
+    val scanSave: String,
+    val scanSaved: String,
+    val scanSavedScans: String,
+    val scanViewSaved: String,
+    val scanViewPlan: String,
+    val scanHasPlan: String,
 )
 
 data class WorksheetStrings(
@@ -285,6 +303,7 @@ data class AssessmentStrings(
     val assessmentUnitTests: String,
     val assessmentUnitTestsDesc: String,
     val assessmentEnterScores: String,
+    val assessmentOpenTool: String,
     val assessmentUpdateScores: String,
     val assessmentEntryTitle: String,
     val assessmentScoreLabel: String,
@@ -292,6 +311,31 @@ data class AssessmentStrings(
     val assessmentSaveError: String,
     val assessmentLoadError: String,
     val assessmentRetry: String,
+    val assessmentToolTitle: String,
+    val assessmentDownloadStudent: String,
+    val assessmentDownloadAssessor: String,
+    val assessmentComputedScore: String,
+    val assessmentTallyHint: String,
+    val assessmentCorrectCount: String,
+    val assessmentNotAssessed: String,
+    val assessmentDownloadError: String,
+    val assessmentBulkScanTitle: String,
+    val assessmentBulkScanHint: String,
+    val assessmentBulkScanPapers: String,
+    val assessmentBulkScanTally: String,
+    val assessmentBulkScanning: String,
+    val assessmentBulkScanDone: String,
+    val assessmentBulkScanError: String,
+    val assessmentExportReport: String,
+    val assessmentExportReportHint: String,
+    val assessmentExportError: String,
+    val assessmentScanLocked: String,
+    val assessmentAdminNotes: String,
+    val assessmentWeakItemsTitle: String,
+    val assessmentPlanReteach: String,
+    val assessmentSavedOk: String,
+    val assessmentLegacyHint: String,
+    val assessmentStructuredBadge: String,
 )
 
 data class RoadmapStrings(
@@ -434,6 +478,9 @@ data class AppStrings(
     val changeLanguage get() = profile.changeLanguage
     val accountSettings get() = profile.accountSettings
     val saveProfile get() = profile.saveProfile
+    val changePhoto get() = profile.changePhoto
+    val takePhoto get() = profile.takePhoto
+    val chooseFromGallery get() = profile.chooseFromGallery
 
     val planLesson get() = plan.planLesson
     val flashcardsBtn get() = plan.flashcardsBtn
@@ -498,6 +545,7 @@ data class AppStrings(
     val tierCurrentPlan get() = tier.tierCurrentPlan
     val tierPlansRemaining get() = tier.tierPlansRemaining
     val tierPlansUnlimited get() = tier.tierPlansUnlimited
+    val tierScansRemaining get() = tier.tierScansRemaining
     val tierUpgradeHint get() = tier.tierUpgradeHint
     val tierGradeLocked get() = tier.tierGradeLocked
 
@@ -507,11 +555,14 @@ data class AppStrings(
     val subBasicTagline get() = subscription.subBasicTagline
     val subPrimeTagline get() = subscription.subPrimeTagline
     val subMaxTagline get() = subscription.subMaxTagline
+    val subTrialActive get() = subscription.subTrialActive
     val subRenewsOn get() = subscription.subRenewsOn
     val subMonthly get() = subscription.subMonthly
     val subYearlySave get() = subscription.subYearlySave
     val subFreeForever get() = subscription.subFreeForever
     val subCurrentPlan get() = subscription.subCurrentPlan
+    val subIncludedInPlan get() = subscription.subIncludedInPlan
+    val subYearlyEquivalent get() = subscription.subYearlyEquivalent
     val subMostPopular get() = subscription.subMostPopular
     val subSubscribePrime get() = subscription.subSubscribePrime
     val subSubscribeMax get() = subscription.subSubscribeMax
@@ -519,6 +570,7 @@ data class AppStrings(
     val subUpgrade get() = subscription.subUpgrade
     val subManagePlan get() = subscription.subManagePlan
     val subLoadError get() = subscription.subLoadError
+    val subCatalogOffline get() = subscription.subCatalogOffline
     val subPlanUnavailable get() = subscription.subPlanUnavailable
     val subPaymentSuccess get() = subscription.subPaymentSuccess
     val subPaymentFailed get() = subscription.subPaymentFailed
@@ -526,6 +578,7 @@ data class AppStrings(
     val subWhatsAppSupport get() = subscription.subWhatsAppSupport
     val subWhatsAppPrefill get() = subscription.subWhatsAppPrefill
     val subSaveInr get() = subscription.subSaveInr
+    val subCompareTitle get() = subscription.subCompareTitle
 
     val scanTitle get() = scan.scanTitle
     val scanBtn get() = scan.scanBtn
@@ -535,17 +588,26 @@ data class AppStrings(
     val scanAnalyzing get() = scan.scanAnalyzing
     val scanError get() = scan.scanError
     val scanImageError get() = scan.scanImageError
+    val scanImageTooLarge get() = scan.scanImageTooLarge
     val scanLocked get() = scan.scanLocked
+    val scanLimitReached get() = scan.scanLimitReached
     val scanResultTitle get() = scan.scanResultTitle
     val scanResultsTitle get() = scan.scanResultsTitle
     val scanOpenCamera get() = scan.scanOpenCamera
     val scanCameraHint get() = scan.scanCameraHint
     val scanCameraCancelled get() = scan.scanCameraCancelled
+    val scanCameraPermission get() = scan.scanCameraPermission
     val scanCaptureAgain get() = scan.scanCaptureAgain
     val scanCreatePlan get() = scan.scanCreatePlan
     val scanNextSteps get() = scan.scanNextSteps
     val scanVocabulary get() = scan.scanVocabulary
     val scanSuggested get() = scan.scanSuggested
+    val scanSave get() = scan.scanSave
+    val scanSaved get() = scan.scanSaved
+    val scanSavedScans get() = scan.scanSavedScans
+    val scanViewSaved get() = scan.scanViewSaved
+    val scanViewPlan get() = scan.scanViewPlan
+    val scanHasPlan get() = scan.scanHasPlan
 
     val worksheetBtn get() = worksheet.worksheetBtn
     val worksheetTitle get() = worksheet.worksheetTitle
@@ -575,6 +637,7 @@ data class AppStrings(
     val assessmentUnitTests get() = assessment.assessmentUnitTests
     val assessmentUnitTestsDesc get() = assessment.assessmentUnitTestsDesc
     val assessmentEnterScores get() = assessment.assessmentEnterScores
+    val assessmentOpenTool get() = assessment.assessmentOpenTool
     val assessmentUpdateScores get() = assessment.assessmentUpdateScores
     val assessmentEntryTitle get() = assessment.assessmentEntryTitle
     val assessmentScoreLabel get() = assessment.assessmentScoreLabel
@@ -582,6 +645,31 @@ data class AppStrings(
     val assessmentSaveError get() = assessment.assessmentSaveError
     val assessmentLoadError get() = assessment.assessmentLoadError
     val assessmentRetry get() = assessment.assessmentRetry
+    val assessmentToolTitle get() = assessment.assessmentToolTitle
+    val assessmentDownloadStudent get() = assessment.assessmentDownloadStudent
+    val assessmentDownloadAssessor get() = assessment.assessmentDownloadAssessor
+    val assessmentComputedScore get() = assessment.assessmentComputedScore
+    val assessmentTallyHint get() = assessment.assessmentTallyHint
+    val assessmentCorrectCount get() = assessment.assessmentCorrectCount
+    val assessmentNotAssessed get() = assessment.assessmentNotAssessed
+    val assessmentDownloadError get() = assessment.assessmentDownloadError
+    val assessmentBulkScanTitle get() = assessment.assessmentBulkScanTitle
+    val assessmentBulkScanHint get() = assessment.assessmentBulkScanHint
+    val assessmentBulkScanPapers get() = assessment.assessmentBulkScanPapers
+    val assessmentBulkScanTally get() = assessment.assessmentBulkScanTally
+    val assessmentBulkScanning get() = assessment.assessmentBulkScanning
+    val assessmentBulkScanDone get() = assessment.assessmentBulkScanDone
+    val assessmentBulkScanError get() = assessment.assessmentBulkScanError
+    val assessmentExportReport get() = assessment.assessmentExportReport
+    val assessmentExportReportHint get() = assessment.assessmentExportReportHint
+    val assessmentExportError get() = assessment.assessmentExportError
+    val assessmentScanLocked get() = assessment.assessmentScanLocked
+    val assessmentAdminNotes get() = assessment.assessmentAdminNotes
+    val assessmentWeakItemsTitle get() = assessment.assessmentWeakItemsTitle
+    val assessmentPlanReteach get() = assessment.assessmentPlanReteach
+    val assessmentSavedOk get() = assessment.assessmentSavedOk
+    val assessmentLegacyHint get() = assessment.assessmentLegacyHint
+    val assessmentStructuredBadge get() = assessment.assessmentStructuredBadge
 
     val roadmapUnitTestSub get() = roadmap.roadmapUnitTestSub
 }

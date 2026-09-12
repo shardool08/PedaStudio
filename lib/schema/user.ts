@@ -24,13 +24,13 @@ export interface TeacherProfile {
   teacherResources: string[];
   currentLessons: Record<string, string>;
   profileComplete: boolean;
-  updatedAt?: FirebaseFirestore.Timestamp;
+  updatedAt?: string;
 }
 
 /** Server-only fields on users/{uid} — clients cannot write these. */
 export interface TeacherAccountFields {
   tier: TierId;
-  tierExpiresAt?: FirebaseFirestore.Timestamp;
+  tierExpiresAt?: string;
   usage: UsageSnapshot;
   subscription: Partial<SubscriptionRecord>;
 }

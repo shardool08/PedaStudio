@@ -54,7 +54,8 @@ export function buildPlanPrompt(
   day: number,
   selections: PlanSelections,
   teacherProfile: TeacherProfile,
-  mode: PlanMode = null
+  mode: PlanMode = null,
+  assessmentReteachNotes?: string,
 ): string {
   const dayInfo = lesson.bloomsProgression.find((b) => b.day === day);
   const lang = langName(teacherProfile.language);
@@ -68,6 +69,10 @@ export function buildPlanPrompt(
   const assessment = selections.assessment || selections.p6 || "Oral questions";
   const notes = selections.notes || "";
   const modeLine = modeInstruction(mode);
+  const assessmentLine =
+    assessmentReteachNotes?.trim()
+      ? `\nASSESSMENT DATA — target these weak learning outcomes in this lesson:\n${assessmentReteachNotes.trim()}\n`
+      : "";
 
   return `You are creating a COMPLETE, READY-TO-USE lesson plan for a Grade ${grade} English teacher in a ${lang}-medium municipal school in Maharashtra, India.
 
@@ -89,6 +94,7 @@ TEACHER'S CHOICES:
 - Practice style: ${practice}
 - Assessment method: ${assessment}
 ${notes ? `- Special notes: ${notes}` : ""}
+${assessmentLine}
 
 TEACHER PROFILE:
 - Name: ${teacherProfile.name || "Teacher"}

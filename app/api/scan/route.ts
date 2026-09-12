@@ -47,8 +47,8 @@ export async function POST(req: NextRequest) {
 
     let account;
     try {
-      account = await assertFeatureAllowed(auth.uid, "textbookScan", "prime");
-      account = await assertMonthlyUsageAllowed(auth.uid, "scans", "prime");
+      account = await assertFeatureAllowed(auth.uid, "textbookScan", "max");
+      account = await assertMonthlyUsageAllowed(auth.uid, "scans", "max");
     } catch (err) {
       if (err instanceof TierLimitError) {
         return tierErrorResponse(auth.uid, err);
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
         {
           error: `Grade ${lessonGrade} requires a higher plan.`,
           code: "GRADE_LOCKED",
-          upgradeTier: lessonGrade <= 5 ? "prime" : "max",
+          upgradeTier: "prime",
           account: updated,
         },
         { status: 403 },
@@ -79,7 +79,6 @@ export async function POST(req: NextRequest) {
       : "Teacher scanned a textbook page.";
 
     const result = await anthropicMessages({
-      model: "claude-sonnet-4-20250514",
       max_tokens: 2048,
       messages: [
         {

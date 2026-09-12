@@ -9,7 +9,7 @@ object Routes {
     const val REGISTER_STEP3 = "register_step3"
     const val HOME = "home"
     const val EDIT_PROFILE = "edit_profile"
-    const val QUICK_PLAN = "quick_plan/{lessonId}/{day}?mode={mode}&reteachNotes={reteachNotes}"
+    const val QUICK_PLAN = "quick_plan/{lessonId}/{day}?mode={mode}&reteachNotes={reteachNotes}&afterUnitTest={afterUnitTest}"
     const val PLAN_VIEW = "plan_view/{lessonId}/{day}"
     const val FLASHCARDS = "flashcards/{lessonId}"
     const val SCAN = "scan?lessonId={lessonId}"
@@ -30,10 +30,15 @@ object Routes {
         day: Int = 1,
         mode: String = "",
         reteachNotes: String = "",
+        afterUnitTest: Boolean = false,
     ): String {
         val base = "quick_plan/${encode(lessonId)}/$day"
-        if (mode.isBlank() && reteachNotes.isBlank()) return base
-        return "$base?mode=${encode(mode)}&reteachNotes=${encode(reteachNotes)}"
+        val params = mutableListOf<String>()
+        if (mode.isNotBlank()) params.add("mode=${encode(mode)}")
+        if (reteachNotes.isNotBlank()) params.add("reteachNotes=${encode(reteachNotes)}")
+        if (afterUnitTest) params.add("afterUnitTest=true")
+        if (params.isEmpty()) return base
+        return "$base?${params.joinToString("&")}"
     }
     fun planView(lessonId: String, day: Int) = "plan_view/${encode(lessonId)}/$day"
     fun flashcards(lessonId: String) = "flashcards/${encode(lessonId)}"

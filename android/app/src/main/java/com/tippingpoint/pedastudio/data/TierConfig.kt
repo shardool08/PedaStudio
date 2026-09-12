@@ -8,13 +8,20 @@ object TierConfig {
         MAX("max", "Max"),
     }
 
+    const val BASIC_PLANS_PER_WEEK = 2
+    const val PRIME_PLANS_PER_WEEK = 6
+    const val MAX_PLANS_PER_WEEK = 6
+    const val PRIME_OCR_SCANS_PER_WEEK = 6
+    const val MAX_SCANS_PER_WEEK = 2
+    const val MAX_OCR_SCANS_PER_WEEK = 12
+
     data class Limits(
-        val plansPerMonth: Int?,
-        val worksheetsPerMonth: Int?,
-        val scansPerMonth: Int?,
+        val plansPerWeek: Int?,
+        val worksheetsPerWeek: Int?,
+        val scansPerWeek: Int?,
         val maxClasses: Int?,
         val maxStudentsPerClass: Int,
-        val ocrScansPerMonth: Int?,
+        val ocrScansPerWeek: Int?,
     )
 
     data class Features(
@@ -47,7 +54,7 @@ object TierConfig {
     )
 
     data class Usage(
-        val month: String,
+        val week: String,
         val plans: Int,
         val worksheets: Int,
         val scans: Int,
@@ -65,8 +72,8 @@ object TierConfig {
         tier = TierId.BASIC,
         limits = limitsFor(TierId.BASIC),
         features = featuresFor(TierId.BASIC),
-        usage = Usage(month = "", plans = 0, worksheets = 0, scans = 0, ocrScans = 0),
-        plansRemaining = 20,
+        usage = Usage(week = "", plans = 0, worksheets = 0, scans = 0, ocrScans = 0),
+        plansRemaining = BASIC_PLANS_PER_WEEK,
         subscription = SubscriptionInfo("none", null, null, null),
         paymentsEnabled = false,
     )
@@ -81,25 +88,23 @@ object TierConfig {
         tierRank(current) >= tierRank(required)
 
     fun limitsFor(tier: TierId): Limits = when (tier) {
-        TierId.BASIC -> Limits(20, 0, 0, 1, 45, 0)
-        TierId.PRIME -> Limits(null, 10, 15, 2, 45, 120)
-        TierId.MAX -> Limits(null, null, 60, null, 60, null)
+        TierId.BASIC -> Limits(BASIC_PLANS_PER_WEEK, 0, 0, 1, 45, 0)
+        TierId.PRIME -> Limits(PRIME_PLANS_PER_WEEK, null, 0, 1, 45, PRIME_OCR_SCANS_PER_WEEK)
+        TierId.MAX -> Limits(MAX_PLANS_PER_WEEK, null, MAX_SCANS_PER_WEEK, 2, 60, MAX_OCR_SCANS_PER_WEEK)
     }
 
     fun featuresFor(tier: TierId): Features {
-        val basicGrades = listOf(1, 2, 3)
-        val primeGrades = listOf(1, 2, 3, 4, 5)
-        val maxGrades = listOf(1, 2, 3, 4, 5, 6, 7, 8)
+        val fullGrades = listOf(1, 2, 3, 4, 5)
         return when (tier) {
             TierId.BASIC -> Features(
                 unlimitedPlans = false,
-                planModesAlways = false,
+                planModesAlways = true,
                 planModesAfterUnitTest = true,
                 baselineAssessment = true,
                 endlineAssessment = true,
                 unitTests = true,
                 manualAssessmentEntry = true,
-                fullAssessmentReports = true,
+                fullAssessmentReports = false,
                 shortActionPlan = true,
                 fullActionPlan = false,
                 baselinePlanBand = true,
@@ -116,11 +121,11 @@ object TierConfig {
                 perStudentLongitudinal = false,
                 abilityGroups = false,
                 clusterExport = false,
-                hindiUrduUi = false,
-                gradesAvailable = basicGrades,
+                hindiUrduUi = true,
+                gradesAvailable = fullGrades,
             )
             TierId.PRIME -> Features(
-                unlimitedPlans = true,
+                unlimitedPlans = false,
                 planModesAlways = true,
                 planModesAfterUnitTest = true,
                 baselineAssessment = true,
@@ -138,17 +143,17 @@ object TierConfig {
                 yearTlmPdfShare = true,
                 bulkPaperScan = true,
                 aiAutoMark = true,
-                reportPdfExport = true,
+                reportPdfExport = false,
                 worksheets = true,
-                textbookScan = true,
+                textbookScan = false,
                 perStudentLongitudinal = true,
                 abilityGroups = false,
                 clusterExport = false,
                 hindiUrduUi = true,
-                gradesAvailable = primeGrades,
+                gradesAvailable = fullGrades,
             )
             TierId.MAX -> Features(
-                unlimitedPlans = true,
+                unlimitedPlans = false,
                 planModesAlways = true,
                 planModesAfterUnitTest = true,
                 baselineAssessment = true,
@@ -173,7 +178,7 @@ object TierConfig {
                 abilityGroups = true,
                 clusterExport = true,
                 hindiUrduUi = true,
-                gradesAvailable = maxGrades,
+                gradesAvailable = fullGrades,
             )
         }
     }
@@ -189,32 +194,4 @@ object TierConfig {
         TierId.PRIME -> "Max"
         TierId.MAX -> "Max"
     }
-}
-
-data class SubscriptionInfo(
-    val status: String,
-    val planId: String?,
-    val billingCycle: String?,
-    val expiresAt: Long?,
-) {
-    val isActive: Boolean get() = status == "active" && (expiresAt == null || expiresAt > System.currentTimeMillis())
-}
-
-data class TeacherAccount(
-    val tier: TierConfig.TierId,
-    val limits: TierConfig.Limits,
-    val features: TierConfig.Features,
-    val usage: TierConfig.Usage,
-    val plansRemaining: Int?,
-    val subscription: SubscriptionInfo = SubscriptionInfo("none", null, null, null),
-    val paymentsEnabled: Boolean = false,
-    val razorpayKeyId: String? = null,
-    val supportWhatsApp: String = "919876543210",
-    val supportEmail: String = "support@pedastudio.in",
-) {
-    fun hasFeature(feature: (TierConfig.Features) -> Boolean): Boolean = feature(features)
-
-    fun needsUpgradeForPrime(): Boolean = tier == TierConfig.TierId.BASIC
-
-    fun needsUpgradeForMax(): Boolean = tier != TierConfig.TierId.MAX
 }

@@ -9,7 +9,7 @@ export interface TlmResourceItem {
 
 export interface TlmCatalogDocument {
   resources: TlmResourceItem[];
-  updatedAt?: FirebaseFirestore.Timestamp;
+  updatedAt?: string;
 }
 
 /** Firestore: catalog/flashcards/lessons/{safeLessonId} */
@@ -28,5 +28,5 @@ export interface FlashcardLessonDocument {
   lessonId: string;
   title: string;
   cards: FlashcardItem[];
-  updatedAt?: FirebaseFirestore.Timestamp;
+  updatedAt?: string;
 }

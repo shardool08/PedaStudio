@@ -21,7 +21,18 @@ interface TeacherDetail {
   subscription: { status: string; planId: string | null; expiresAt: string | null };
   profile: Record<string, unknown>;
   recentPlans: Array<{ id: string; lessonId: string; day: number; status: string }>;
-  recentAssessments: Array<{ id: string; type: string; grade: number; scorePercent: number }>;
+  recentAssessments: Array<{
+    id: string;
+    type: string;
+    grade: number;
+    scorePercent: number;
+    groupId?: string;
+    groupName?: string;
+    studentsAssessed: number;
+    weakItems: string[];
+    strands: Array<{ label: string; percent: number }>;
+    updatedAt: string;
+  }>;
   payments: Array<{ id: string; tier: string; amountPaise: number; createdAt: string | null }>;
 }
 
@@ -231,13 +242,29 @@ export default function TeacherDetailPage() {
           {teacher.recentAssessments.length === 0 ? (
             <p className="mt-2 text-sm text-[#496580]/50">No assessments yet</p>
           ) : (
-            <ul className="mt-2 space-y-1 text-sm">
+            <ul className="mt-2 space-y-3 text-sm">
               {teacher.recentAssessments.map((a) => (
-                <li key={a.id} className="flex justify-between text-[#496580]/80">
-                  <span className="capitalize">
-                    {a.type} · Grade {a.grade}
-                  </span>
-                  <span>{a.scorePercent}%</span>
+                <li key={a.id} className="rounded-lg border border-[#D0EAE4] p-3 text-[#496580]/80">
+                  <div className="flex justify-between font-medium capitalize">
+                    <span>
+                      {a.type}
+                      {a.groupName ? ` · ${a.groupName}` : ""} · Grade {a.grade}
+                    </span>
+                    <span>{a.scorePercent}%</span>
+                  </div>
+                  <p className="mt-1 text-xs text-[#496580]/50">
+                    {a.studentsAssessed} students · {a.updatedAt ? new Date(a.updatedAt).toLocaleDateString() : "—"}
+                  </p>
+                  {a.strands?.length > 0 && (
+                    <p className="mt-2 text-xs">
+                      {a.strands.map((s) => `${s.label} ${s.percent}%`).join(" · ")}
+                    </p>
+                  )}
+                  {a.weakItems?.length > 0 && (
+                    <p className="mt-1 text-xs text-[#C62828]">
+                      Weak: {a.weakItems.join(", ")}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>

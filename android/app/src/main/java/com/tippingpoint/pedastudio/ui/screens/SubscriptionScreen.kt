@@ -4,8 +4,10 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -28,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tippingpoint.pedastudio.api.SubscriptionApiClient
 import com.tippingpoint.pedastudio.api.SubscriptionCatalog
+import com.tippingpoint.pedastudio.api.SubscriptionCatalogFallback
 import com.tippingpoint.pedastudio.api.TierMarketing
 import com.tippingpoint.pedastudio.auth.PhoneAuthController
 import com.tippingpoint.pedastudio.billing.RazorpayPaymentHandler
@@ -36,6 +39,7 @@ import com.tippingpoint.pedastudio.data.TierConfig
 import com.tippingpoint.pedastudio.data.UserPreferences
 import com.tippingpoint.pedastudio.i18n.LocalAppStrings
 import com.tippingpoint.pedastudio.ui.components.BillingCycleToggle
+import com.tippingpoint.pedastudio.ui.components.PlanFeatureComparisonTable
 import com.tippingpoint.pedastudio.ui.components.MembershipHeroCard
 import com.tippingpoint.pedastudio.ui.components.PlanOfferCard
 import com.tippingpoint.pedastudio.ui.components.RegisterScaffold
@@ -59,20 +63,39 @@ fun SubscriptionScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var catalog by remember { mutableStateOf<SubscriptionCatalog?>(null) }
+    var catalog by remember { mutableStateOf(SubscriptionCatalogFallback.catalog()) }
     var loading by remember { mutableStateOf(true) }
     var paying by remember { mutableStateOf(false) }
     var yearly by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf("") }
     var success by remember { mutableStateOf("") }
 
-    LaunchedEffect(Unit) {
-        loading = true
-        SubscriptionApiClient.fetchCatalog()
-            .onSuccess { catalog = it }
-            .onFailure { error = it.message ?: s.subLoadError }
-        loading = false
+    val paymentsLive = remember(catalog, account) {
+        val key = catalog?.razorpayKeyId?.takeIf { it.isNotBlank() }
+            ?: account.razorpayKeyId?.takeIf { it.isNotBlank() }
+        val enabled = catalog?.paymentsEnabled == true || account.paymentsEnabled
+        enabled && !key.isNullOrBlank()
     }
+    val razorpayKey = catalog?.razorpayKeyId?.takeIf { it.isNotBlank() } ?: account.razorpayKeyId
+
+    fun reloadCatalog() {
+        scope.launch {
+            loading = true
+            error = ""
+            val result = withContext(Dispatchers.IO) { SubscriptionApiClient.fetchCatalog() }
+            catalog = SubscriptionCatalogFallback.merge(result.getOrNull())
+            if (result.isFailure) {
+                error = if (result.getOrNull() == null) {
+                    s.subCatalogOffline
+                } else {
+                    result.exceptionOrNull()?.message ?: s.subLoadError
+                }
+            }
+            loading = false
+        }
+    }
+
+    LaunchedEffect(Unit) { reloadCatalog() }
 
     fun contactWhatsApp() {
         val phone = account.supportWhatsApp.ifBlank { catalog?.supportWhatsApp ?: "919876543210" }
@@ -82,13 +105,16 @@ fun SubscriptionScreen(
 
     fun startPurchase(tier: TierConfig.TierId) {
         if (tier == TierConfig.TierId.BASIC) return
-        val cat = catalog
-        if (cat == null || !cat.paymentsEnabled) {
-            contactWhatsApp()
+        if (TierConfig.tierRank(account.tier) >= TierConfig.tierRank(tier)) return
+
+        if (!paymentsLive) {
+            error = s.subPaymentsOffline
             return
         }
+
+        val cat = catalog
         val cycle = if (yearly) "yearly" else "monthly"
-        val plan = cat.plans.firstOrNull { it.tier == tier && it.billingCycle == cycle }
+        val plan = cat?.plans?.firstOrNull { it.tier == tier && it.billingCycle == cycle }
         if (plan == null) {
             error = s.subPlanUnavailable
             return
@@ -97,11 +123,11 @@ fun SubscriptionScreen(
         error = ""
         scope.launch {
             val orderResult = withContext(Dispatchers.IO) {
-                SubscriptionApiClient.createOrder(plan.id, prefs.teacherName, auth.getIdToken())
+                SubscriptionApiClient.createOrder(plan.id, prefs.teacherName, prefs.phoneNumber, auth.getIdToken())
             }
             orderResult.fold(
                 onSuccess = { order ->
-                    paymentHandler.startCheckout(order) { payResult ->
+                    paymentHandler.startCheckout(order, razorpayKey) { payResult ->
                         payResult.fold(
                             onSuccess = { payment ->
                                 scope.launch {
@@ -151,10 +177,13 @@ fun SubscriptionScreen(
         onContinue = onBack,
     ) {
         if (loading) {
-            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                CircularProgressIndicator(color = AccentTeal)
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(color = AccentTeal, modifier = Modifier.height(24.dp))
             }
-            return@RegisterScaffold
         }
 
         Column(
@@ -168,12 +197,36 @@ fun SubscriptionScreen(
             }
             if (error.isNotBlank()) {
                 Text(error, color = Color(0xFFC62828), fontSize = 13.sp)
+                TextButton(onClick = { reloadCatalog() }, enabled = !loading) {
+                    Text("Retry", color = AccentTeal)
+                }
             }
 
             BillingCycleToggle(s = s, yearly = yearly, onYearlyChange = { yearly = it })
 
+            if (catalog?.razorpayTestMode == true) {
+                Text(
+                    "Test payment mode — Razorpay card 4111 1111 1111 1111, any future expiry & CVV",
+                    fontSize = 11.sp,
+                    color = PrimarySteel.copy(0.65f),
+                )
+            }
+
+            PlanFeatureComparisonTable(
+                s = s,
+                rows = catalog?.comparison?.takeIf { it.isNotEmpty() }
+                    ?: SubscriptionCatalogFallback.comparison,
+            )
+
             val marketing = catalog?.marketing.orEmpty()
             fun m(tier: TierConfig.TierId): TierMarketing? = marketing.find { it.tier == tier }
+
+            val accountRank = TierConfig.tierRank(account.tier)
+            fun isCurrentTier(card: TierConfig.TierId) = account.tier == card
+            fun isIncludedTier(card: TierConfig.TierId) =
+                accountRank > TierConfig.tierRank(card)
+            fun canPurchase(card: TierConfig.TierId) =
+                accountRank < TierConfig.tierRank(card) && paymentsLive && !paying
 
             PlanOfferCard(
                 s = s,
@@ -184,9 +237,10 @@ fun SubscriptionScreen(
                 priceLabel = null,
                 periodLabel = null,
                 savingsLabel = null,
-                isCurrent = account.tier == TierConfig.TierId.BASIC,
+                isCurrent = isCurrentTier(TierConfig.TierId.BASIC),
+                isIncluded = isIncludedTier(TierConfig.TierId.BASIC),
                 isRecommended = false,
-                buttonText = s.subCurrentPlan,
+                buttonText = s.subFreeForever,
                 enabled = false,
                 onSelect = {},
             )
@@ -202,11 +256,15 @@ fun SubscriptionScreen(
                 badge = m(TierConfig.TierId.PRIME)?.badge ?: s.subMostPopular,
                 priceLabel = primePlan?.amountInr?.toString(),
                 periodLabel = primePlan?.periodLabel,
-                savingsLabel = primePlan?.savingsInr?.let { s.subSaveInr.format(it) },
-                isCurrent = account.tier == TierConfig.TierId.PRIME,
-                isRecommended = highlightTier == TierConfig.TierId.PRIME || highlightTier == null,
-                buttonText = if (catalog?.paymentsEnabled == true) s.subSubscribePrime else s.subContactUpgrade,
-                enabled = !paying && account.tier != TierConfig.TierId.PRIME,
+                savingsLabel = if (yearly) primePlan?.savingsInr?.let { s.subSaveInr.format(it) } else null,
+                monthlyEquivalentInr = if (yearly) primePlan?.monthlyEquivalentInr else null,
+                isCurrent = isCurrentTier(TierConfig.TierId.PRIME),
+                isIncluded = isIncludedTier(TierConfig.TierId.PRIME),
+                isRecommended = (highlightTier == TierConfig.TierId.PRIME ||
+                    (highlightTier == null && accountRank == TierConfig.tierRank(TierConfig.TierId.BASIC))) &&
+                    !isCurrentTier(TierConfig.TierId.PRIME),
+                buttonText = s.subSubscribePrime,
+                enabled = canPurchase(TierConfig.TierId.PRIME),
                 onSelect = { startPurchase(TierConfig.TierId.PRIME) },
             )
 
@@ -221,15 +279,19 @@ fun SubscriptionScreen(
                 badge = null,
                 priceLabel = maxPlan?.amountInr?.toString(),
                 periodLabel = maxPlan?.periodLabel,
-                savingsLabel = maxPlan?.savingsInr?.let { s.subSaveInr.format(it) },
-                isCurrent = account.tier == TierConfig.TierId.MAX,
-                isRecommended = highlightTier == TierConfig.TierId.MAX,
-                buttonText = if (catalog?.paymentsEnabled == true) s.subSubscribeMax else s.subContactUpgrade,
-                enabled = !paying && account.tier != TierConfig.TierId.MAX,
+                savingsLabel = if (yearly) maxPlan?.savingsInr?.let { s.subSaveInr.format(it) } else null,
+                monthlyEquivalentInr = if (yearly) maxPlan?.monthlyEquivalentInr else null,
+                isCurrent = isCurrentTier(TierConfig.TierId.MAX),
+                isIncluded = false,
+                isRecommended = (highlightTier == TierConfig.TierId.MAX ||
+                    (highlightTier == null && accountRank == TierConfig.tierRank(TierConfig.TierId.PRIME))) &&
+                    !isCurrentTier(TierConfig.TierId.MAX),
+                buttonText = s.subSubscribeMax,
+                enabled = canPurchase(TierConfig.TierId.MAX),
                 onSelect = { startPurchase(TierConfig.TierId.MAX) },
             )
 
-            if (catalog?.paymentsEnabled != true) {
+            if (!paymentsLive) {
                 Text(s.subPaymentsOffline, fontSize = 12.sp, color = PrimarySteel.copy(0.75f))
                 TextButton(onClick = { contactWhatsApp() }) {
                     Text(s.subWhatsAppSupport, color = AccentTeal)

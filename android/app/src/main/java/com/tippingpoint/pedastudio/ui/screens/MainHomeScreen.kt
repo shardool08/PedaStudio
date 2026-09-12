@@ -1,5 +1,12 @@
 package com.tippingpoint.pedastudio.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import com.tippingpoint.pedastudio.ui.createCameraImageUri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -33,6 +40,7 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PhotoCamera
@@ -70,6 +78,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -97,7 +106,6 @@ import com.tippingpoint.pedastudio.i18n.AppStrings
 import com.tippingpoint.pedastudio.i18n.LocalAppLanguage
 import com.tippingpoint.pedastudio.i18n.LocalAppStrings
 import com.tippingpoint.pedastudio.ui.components.InfoBannerCard
-import com.tippingpoint.pedastudio.ui.components.MembershipHeroCard
 import com.tippingpoint.pedastudio.ui.components.TierBadge
 import com.tippingpoint.pedastudio.ui.components.UpgradeBanner
 import com.tippingpoint.pedastudio.ui.components.PrimaryButton
@@ -202,20 +210,25 @@ fun MainHomeScreen(
                     } else {
                         Column {
                             Text("PedaStudio", fontWeight = FontWeight.Bold)
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    s.helloTeacher.format(prefs.teacherName.ifBlank { teacherFallback }),
-                                    fontSize = 12.sp,
-                                    color = PrimaryDark.copy(alpha = 0.6f),
-                                )
-                                TierBadge(teacherAccount.tier)
-                            }
+                            Text(
+                                s.helloTeacher.format(prefs.teacherName.ifBlank { teacherFallback }),
+                                fontSize = 12.sp,
+                                color = PrimaryDark.copy(alpha = 0.6f),
+                            )
                         }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = if (tab == HomeTab.PROFILE) NavBg else Color.White,
                 ),
+                actions = {
+                    if (tab != HomeTab.PROFILE) {
+                        TierBadge(
+                            teacherAccount.tier,
+                            modifier = Modifier.padding(end = 16.dp),
+                        )
+                    }
+                },
             )
         },
         bottomBar = {
@@ -437,7 +450,7 @@ private fun HomeTabContent(
                     ),
                     onUpgrade = onManageSubscription,
                 )
-            } else if (teacherAccount.tier == TierConfig.TierId.BASIC && (teacherAccount.plansRemaining ?: 1) <= 5) {
+            } else if (teacherAccount.tier == TierConfig.TierId.BASIC && (teacherAccount.plansRemaining ?: 1) <= 1) {
                 UpgradeBanner(
                     s = s,
                     message = s.tierPlansRemaining.format(teacherAccount.plansRemaining ?: 0),
@@ -552,7 +565,12 @@ private fun HomeTabContent(
         if (available && currentLesson != null) {
             HomeQuickActionCard(
                 title = s.scanBtn,
-                subtitle = if (teacherAccount.hasFeature { it.textbookScan }) s.homeScanSub else s.scanLocked,
+                subtitle = when {
+                    !teacherAccount.hasFeature { it.textbookScan } -> s.scanLocked
+                    teacherAccount.scansRemaining != null ->
+                        s.tierScansRemaining.format(teacherAccount.scansRemaining)
+                    else -> s.homeScanSub
+                },
                 icon = Icons.Default.PhotoCamera,
                 filled = false,
                 onClick = {
@@ -1158,7 +1176,7 @@ private fun RoadmapMilestoneCard(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileTabContent(
     modifier: Modifier = Modifier,
@@ -1196,6 +1214,82 @@ private fun ProfileTabContent(
     val mediumLabel = prefs.medium.replace('_', ' ').replaceFirstChar { it.uppercase() }
     val grades = prefs.getTeacherGrades()
     val subjects = prefs.getTeacherSubjects()
+    val context = LocalContext.current
+    var photoUri by remember { mutableStateOf(prefs.profilePhotoUri) }
+    var pendingCameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var showPhotoOptions by remember { mutableStateOf(false) }
+    val photoSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            photoUri = uri.toString()
+            prefs.profilePhotoUri = photoUri
+        }
+    }
+
+    val takeProfilePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        val uri = pendingCameraUri
+        if (success && uri != null) {
+            photoUri = uri.toString()
+            prefs.profilePhotoUri = photoUri
+        }
+        pendingCameraUri = null
+    }
+
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            val uri = createCameraImageUri(context)
+            pendingCameraUri = uri
+            takeProfilePhoto.launch(uri)
+        }
+    }
+
+    fun openProfileCamera() {
+        when {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED -> {
+                val uri = createCameraImageUri(context)
+                pendingCameraUri = uri
+                takeProfilePhoto.launch(uri)
+            }
+            else -> cameraPermission.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    if (showPhotoOptions) {
+        ModalBottomSheet(
+            onDismissRequest = { showPhotoOptions = false },
+            sheetState = photoSheetState,
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text(s.changePhoto, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PrimaryDark)
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = {
+                        showPhotoOptions = false
+                        openProfileCamera()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = AccentTeal)
+                    Spacer(Modifier.width(8.dp))
+                    Text(s.takePhoto)
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        showPhotoOptions = false
+                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.Image, contentDescription = null, tint = AccentTeal)
+                    Spacer(Modifier.width(8.dp))
+                    Text(s.chooseFromGallery)
+                }
+                Spacer(Modifier.height(24.dp))
+            }
+        }
+    }
 
     LazyColumn(
         modifier = modifier
@@ -1209,11 +1303,10 @@ private fun ProfileTabContent(
                 name = displayName,
                 phone = prefs.phoneNumber,
                 school = prefs.schoolName,
+                tier = teacherAccount.tier,
+                photoUri = photoUri.takeIf { it.isNotBlank() },
+                onEditPhoto = { showPhotoOptions = true },
             )
-        }
-
-        item {
-            MembershipHeroCard(s = s, account = teacherAccount, modifier = Modifier.padding(horizontal = 16.dp))
         }
 
         item {

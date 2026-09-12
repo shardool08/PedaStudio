@@ -15,9 +15,9 @@ object AccountApiClient {
         .readTimeout(20, TimeUnit.SECONDS)
         .build()
 
-    fun fetchAccount(idToken: String?): Result<TeacherAccount> {
+    fun fetchAccount(idToken: String?, cached: TeacherAccount? = null): Result<TeacherAccount> {
         val base = BuildConfig.API_BASE_URL.trimEnd('/')
-        if (base.isBlank()) return Result.success(TierConfig.defaultAccount())
+        if (base.isBlank()) return Result.success(cached ?: TierConfig.defaultAccount())
 
         val requestBuilder = Request.Builder().url("$base/api/me")
         if (!idToken.isNullOrBlank()) {
@@ -28,17 +28,71 @@ object AccountApiClient {
             client.newCall(requestBuilder.get().build()).execute().use { response ->
                 val text = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    return Result.success(TierConfig.defaultAccount())
+                    return Result.success(cached ?: TierConfig.defaultAccount())
                 }
-                Result.success(parseAccount(JSONObject(text)))
+                val incoming = parseAccount(JSONObject(text))
+                Result.success(if (cached != null) mergeAccountUpdate(cached, incoming) else incoming)
             }
         } catch (_: Exception) {
-            Result.success(TierConfig.defaultAccount())
+            Result.success(cached ?: TierConfig.defaultAccount())
         }
     }
 
+    fun mergeAccountUpdate(current: TeacherAccount, incoming: TeacherAccount): TeacherAccount {
+        val isRealApiAccount = incoming.usage.week.isNotBlank() ||
+            incoming.tier != TierConfig.TierId.BASIC ||
+            incoming.subscription.status != "none" ||
+            incoming.paymentsEnabled
+        val tier = when {
+            !isRealApiAccount && TierConfig.tierRank(current.tier) > TierConfig.tierRank(incoming.tier) -> current.tier
+            TierConfig.tierRank(incoming.tier) >= TierConfig.tierRank(current.tier) -> incoming.tier
+            else -> incoming.tier
+        }
+        val tierFeatures = TierConfig.featuresFor(tier)
+        val tierLimits = TierConfig.limitsFor(tier)
+        return incoming.copy(
+            tier = tier,
+            limits = tierLimits,
+            features = tierFeatures.copy(
+                gradesAvailable = incoming.features.gradesAvailable.ifEmpty { tierFeatures.gradesAvailable },
+            ),
+            usage = incoming.usage,
+            plansRemaining = incoming.plansRemaining ?: current.plansRemaining,
+            scansRemaining = incoming.scansRemaining ?: current.scansRemaining,
+            subscription = incoming.subscription,
+            paymentsEnabled = incoming.paymentsEnabled || current.paymentsEnabled,
+            razorpayKeyId = incoming.razorpayKeyId ?: current.razorpayKeyId,
+            supportWhatsApp = incoming.supportWhatsApp.ifBlank { current.supportWhatsApp },
+            supportEmail = incoming.supportEmail.ifBlank { current.supportEmail },
+        )
+    }
+
+    fun accountToJson(account: TeacherAccount): JSONObject = JSONObject().apply {
+        put("tier", account.tier.key)
+        put("plansRemaining", account.plansRemaining ?: JSONObject.NULL)
+        put("paymentsEnabled", account.paymentsEnabled)
+        account.razorpayKeyId?.let { put("razorpayKeyId", it) }
+        put("supportWhatsApp", account.supportWhatsApp)
+        put("supportEmail", account.supportEmail)
+        put("usage", JSONObject().apply {
+            put("week", account.usage.week)
+            put("plans", account.usage.plans)
+            put("worksheets", account.usage.worksheets)
+            put("scans", account.usage.scans)
+            put("ocrScans", account.usage.ocrScans)
+        })
+        put("subscription", JSONObject().apply {
+            put("status", account.subscription.status)
+            account.subscription.planId?.let { put("planId", it) }
+            account.subscription.billingCycle?.let { put("billingCycle", it) }
+            account.subscription.expiresAt?.let { put("expiresAt", java.time.Instant.ofEpochMilli(it).toString()) }
+        })
+    }
+
     fun parseAccount(json: JSONObject): TeacherAccount {
-        val tier = TierConfig.parseTier(json.optString("tier", "basic"))
+        val tier = resolveTier(json)
+        val hasExplicitTier = json.has("tier") && !json.isNull("tier") &&
+            json.optString("tier").isNotBlank()
         val limitsObj = json.optJSONObject("limits")
         val featuresObj = json.optJSONObject("features")
         val usageObj = json.optJSONObject("usage")
@@ -46,19 +100,19 @@ object AccountApiClient {
         val defaultFeatures = TierConfig.featuresFor(tier)
 
         val limits = TierConfig.Limits(
-            plansPerMonth = limitsObj?.optNullableInt("plansPerMonth") ?: defaultLimits.plansPerMonth,
-            worksheetsPerMonth = limitsObj?.optNullableInt("worksheetsPerMonth") ?: defaultLimits.worksheetsPerMonth,
-            scansPerMonth = limitsObj?.optNullableInt("scansPerMonth") ?: defaultLimits.scansPerMonth,
+            plansPerWeek = limitsObj?.optWeeklyLimit("plansPerWeek", "plansPerMonth") ?: defaultLimits.plansPerWeek,
+            worksheetsPerWeek = limitsObj?.optWeeklyLimit("worksheetsPerWeek", "worksheetsPerMonth") ?: defaultLimits.worksheetsPerWeek,
+            scansPerWeek = limitsObj?.optWeeklyLimit("scansPerWeek", "scansPerMonth") ?: defaultLimits.scansPerWeek,
             maxClasses = limitsObj?.optNullableInt("maxClasses") ?: defaultLimits.maxClasses,
             maxStudentsPerClass = limitsObj?.optInt("maxStudentsPerClass", defaultLimits.maxStudentsPerClass)
                 ?: defaultLimits.maxStudentsPerClass,
-            ocrScansPerMonth = limitsObj?.optNullableInt("ocrScansPerMonth") ?: defaultLimits.ocrScansPerMonth,
+            ocrScansPerWeek = limitsObj?.optWeeklyLimit("ocrScansPerWeek", "ocrScansPerMonth") ?: defaultLimits.ocrScansPerWeek,
         )
 
         val grades = featuresObj?.optJSONArray("gradesAvailable")?.toIntList()
             ?: defaultFeatures.gradesAvailable
 
-        val features = TierConfig.Features(
+        val parsedFeatures = TierConfig.Features(
             unlimitedPlans = featuresObj?.optBoolean("unlimitedPlans", defaultFeatures.unlimitedPlans) == true,
             planModesAlways = featuresObj?.optBoolean("planModesAlways", defaultFeatures.planModesAlways) == true,
             planModesAfterUnitTest = featuresObj?.optBoolean("planModesAfterUnitTest", defaultFeatures.planModesAfterUnitTest) == true,
@@ -87,8 +141,14 @@ object AccountApiClient {
             gradesAvailable = grades,
         )
 
+        val features = if (hasExplicitTier) {
+            defaultFeatures.copy(gradesAvailable = grades.ifEmpty { defaultFeatures.gradesAvailable })
+        } else {
+            parsedFeatures
+        }
+
         val usage = TierConfig.Usage(
-            month = usageObj?.optString("month").orEmpty(),
+            week = usageObj?.optString("week").orEmpty(),
             plans = usageObj?.optInt("plans", 0) ?: 0,
             worksheets = usageObj?.optInt("worksheets", 0) ?: 0,
             scans = usageObj?.optInt("scans", 0) ?: 0,
@@ -98,7 +158,13 @@ object AccountApiClient {
         val plansRemaining = if (json.has("plansRemaining") && !json.isNull("plansRemaining")) {
             json.optInt("plansRemaining")
         } else {
-            limits.plansPerMonth?.let { maxOf(0, it - usage.plans) }
+            limits.plansPerWeek?.let { maxOf(0, it - usage.plans) }
+        }
+
+        val scansRemaining = if (json.has("scansRemaining") && !json.isNull("scansRemaining")) {
+            json.optInt("scansRemaining")
+        } else {
+            limits.scansPerWeek?.let { maxOf(0, it - usage.scans) }
         }
 
         val subObj = json.optJSONObject("subscription")
@@ -113,6 +179,7 @@ object AccountApiClient {
             features = features,
             usage = usage,
             plansRemaining = plansRemaining,
+            scansRemaining = scansRemaining,
             subscription = com.tippingpoint.pedastudio.data.SubscriptionInfo(
                 status = subObj?.optString("status", "none") ?: "none",
                 planId = subObj?.optString("planId"),
@@ -126,9 +193,22 @@ object AccountApiClient {
         )
     }
 
+    private fun resolveTier(json: JSONObject): TierConfig.TierId {
+        // Top-level tier from /api/me is authoritative (handles expired subscriptions).
+        json.optString("tier").takeIf { it.isNotBlank() }?.let { return TierConfig.parseTier(it) }
+        val subTier = json.optJSONObject("subscription")?.optString("tier")?.takeIf { it.isNotBlank() }
+        return TierConfig.parseTier(subTier)
+    }
+
     private fun JSONObject.optNullableInt(key: String): Int? {
         if (!has(key) || isNull(key)) return null
         return optInt(key)
+    }
+
+    /** Reads weekly limit keys; falls back to legacy monthly keys during rollout. */
+    private fun JSONObject.optWeeklyLimit(weekKey: String, legacyMonthKey: String): Int? {
+        optNullableInt(weekKey)?.let { return it }
+        return optNullableInt(legacyMonthKey)
     }
 
     private fun JSONArray.toIntList(): List<Int> {

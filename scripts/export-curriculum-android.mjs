@@ -83,17 +83,18 @@ function parseAssessmentGroups(filePath) {
   const block = text.match(/export const assessmentGroups[\s\S]*?=\s*\{([\s\S]*?)\};\s*(?:export|$)/);
   if (!block) return {};
   const groups = {};
-  const groupRe = /(\w+):\s*\{\s*name:\s*"((?:\\.|[^"\\])*)"\s*,\s*lessons:\s*\[([\s\S]*?)\]\s*,\s*focus:\s*"((?:\\.|[^"\\])*)"\s*\}/g;
+  const groupRe = /(?:"([^"]+)"|([\w]+)):\s*\{\s*name:\s*"((?:\\.|[^"\\])*)"\s*,\s*lessons:\s*\[([\s\S]*?)\]\s*,\s*focus:\s*"((?:\\.|[^"\\])*)"\s*\}/g;
   let m;
   while ((m = groupRe.exec(block[1])) !== null) {
+    const groupId = m[1] || m[2];
     const lessons = [];
     const lessonRe = /"([^"]+)"/g;
     let lm;
-    while ((lm = lessonRe.exec(m[3])) !== null) lessons.push(lm[1]);
-    groups[m[1]] = {
-      name: unescapeJsString(m[2]),
+    while ((lm = lessonRe.exec(m[4])) !== null) lessons.push(lm[1]);
+    groups[groupId] = {
+      name: unescapeJsString(m[3]),
       lessons,
-      focus: unescapeJsString(m[4]),
+      focus: unescapeJsString(m[5]),
     };
   }
   return groups;
@@ -106,17 +107,18 @@ function parseL1AssessmentGroups(filePath, constName) {
   );
   if (!block) return {};
   const groups = {};
-  const groupRe = /(\w+):\s*\{\s*name:\s*"((?:\\.|[^"\\])*)"\s*,\s*lessons:\s*\[([\s\S]*?)\]\s*,\s*focus:\s*"((?:\\.|[^"\\])*)"\s*\}/g;
+  const groupRe = /(?:"([^"]+)"|([\w]+)):\s*\{\s*name:\s*"((?:\\.|[^"\\])*)"\s*,\s*lessons:\s*\[([\s\S]*?)\]\s*,\s*focus:\s*"((?:\\.|[^"\\])*)"\s*\}/g;
   let m;
   while ((m = groupRe.exec(block[1])) !== null) {
+    const groupId = m[1] || m[2];
     const lessons = [];
     const lessonRe = /"([^"]+)"/g;
     let lm;
-    while ((lm = lessonRe.exec(m[3])) !== null) lessons.push(lm[1]);
-    groups[m[1]] = {
-      name: unescapeJsString(m[2]),
+    while ((lm = lessonRe.exec(m[4])) !== null) lessons.push(lm[1]);
+    groups[groupId] = {
+      name: unescapeJsString(m[3]),
       lessons,
-      focus: unescapeJsString(m[4]),
+      focus: unescapeJsString(m[5]),
     };
   }
   return groups;

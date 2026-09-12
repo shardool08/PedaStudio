@@ -11,6 +11,7 @@ data class PaidPlanOffer(
     val amountPaise: Int,
     val periodLabel: String,
     val savingsInr: Int?,
+    val monthlyEquivalentInr: Int? = null,
 )
 
 data class TierMarketing(
@@ -21,12 +22,21 @@ data class TierMarketing(
     val badge: String?,
 )
 
+data class TierComparisonRow(
+    val feature: String,
+    val basic: String,
+    val prime: String,
+    val max: String,
+)
+
 data class SubscriptionCatalog(
     val paymentsEnabled: Boolean,
     val razorpayKeyId: String?,
+    val razorpayTestMode: Boolean = false,
     val supportWhatsApp: String,
     val supportEmail: String,
     val marketing: List<TierMarketing>,
+    val comparison: List<TierComparisonRow> = emptyList(),
     val plans: List<PaidPlanOffer>,
 )
 
@@ -39,6 +49,7 @@ data class CheckoutOrder(
     val planId: String,
     val planLabel: String,
     val prefillName: String,
+    val prefillContact: String = "",
 )
 
 data class PaymentSuccess(

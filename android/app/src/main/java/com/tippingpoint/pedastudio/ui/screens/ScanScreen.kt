@@ -1,9 +1,9 @@
 package com.tippingpoint.pedastudio.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
-import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,8 +30,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,19 +47,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.Image
-import androidx.core.graphics.scale
 import coil.compose.AsyncImage
 import com.tippingpoint.pedastudio.api.ScanAnalysis
 import com.tippingpoint.pedastudio.api.ScanApiClient
 import com.tippingpoint.pedastudio.auth.PhoneAuthController
+import com.tippingpoint.pedastudio.data.AssessmentRepository
 import com.tippingpoint.pedastudio.data.CurriculumRepository
 import com.tippingpoint.pedastudio.data.PlanProgressHelper
 import com.tippingpoint.pedastudio.data.PlanStorage
+import com.tippingpoint.pedastudio.data.SavedScan
+import com.tippingpoint.pedastudio.data.ScanStorage
 import com.tippingpoint.pedastudio.data.TeacherAccount
 import com.tippingpoint.pedastudio.data.TlmKitRepository
 import com.tippingpoint.pedastudio.data.TlmResourceCatalog
 import com.tippingpoint.pedastudio.data.UserPreferences
 import com.tippingpoint.pedastudio.i18n.LocalAppStrings
+import androidx.core.content.ContextCompat
+import com.tippingpoint.pedastudio.ui.encodeBitmapForScan
+import com.tippingpoint.pedastudio.ui.encodeImageUriForScan
+import com.tippingpoint.pedastudio.ui.scanCaptureFile
+import com.tippingpoint.pedastudio.ui.scanCaptureUri
 import com.tippingpoint.pedastudio.ui.components.InfoBannerCard
 import com.tippingpoint.pedastudio.ui.components.PrimaryButton
 import com.tippingpoint.pedastudio.ui.components.RegisterScaffold
@@ -74,23 +81,31 @@ import com.tippingpoint.pedastudio.ui.theme.WarmPeach
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+private const val MAX_SCAN_BYTES = 4_500_000
 
 @Composable
 fun ScanScreen(
     lessonId: String?,
     prefs: UserPreferences,
     curriculum: CurriculumRepository,
+    assessmentRepo: AssessmentRepository,
     tlmCatalog: TlmResourceCatalog,
     planStorage: PlanStorage,
+    scanStorage: ScanStorage,
     auth: PhoneAuthController,
     teacherAccount: TeacherAccount,
     onBack: () -> Unit,
     onUpgrade: () -> Unit,
     onAccountUpdated: (TeacherAccount) -> Unit,
     onOpenWorksheet: (String, Int) -> Unit,
-    onOpenQuickPlan: (String, Int) -> Unit,
+    onOpenQuickPlan: (String, Int, String) -> Unit,
+    onViewPlan: (String, Int) -> Unit,
     onOpenTlmKit: (Int) -> Unit,
+    onOpenAssessment: (String, String?, String?) -> Unit,
 ) {
     val s = LocalAppStrings.current
     val context = LocalContext.current
@@ -102,71 +117,10 @@ fun ScanScreen(
     var analyzing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var analysis by remember { mutableStateOf<ScanAnalysis?>(null) }
-    var cameraRequested by remember { mutableStateOf(false) }
-
-    fun analyzeEncoded(encoded: Pair<String, String>) {
-        analyzing = true
-        error = ""
-        scope.launch {
-            ScanApiClient.analyzePage(encoded.first, encoded.second, lessonId, auth.getIdToken())
-                .onSuccess { result ->
-                    analysis = result
-                    result.account?.let { onAccountUpdated(it) }
-                }
-                .onFailure { e -> error = e.message ?: s.scanError }
-            analyzing = false
-        }
-    }
-
-    fun analyzeBitmap(bitmap: Bitmap) {
-        previewBitmap = bitmap
-        imageUri = null
-        analysis = null
-        scope.launch {
-            val encoded = withContext(Dispatchers.IO) {
-                runCatching { encodeBitmap(bitmap) }.getOrNull()
-            }
-            if (encoded == null) {
-                error = s.scanImageError
-                return@launch
-            }
-            analyzeEncoded(encoded)
-        }
-    }
-
-    fun analyzeUri(uri: Uri) {
-        imageUri = uri
-        previewBitmap = null
-        analysis = null
-        scope.launch {
-            val encoded = withContext(Dispatchers.IO) {
-                runCatching { encodeImageUri(context, uri) }.getOrNull()
-            }
-            if (encoded == null) {
-                error = s.scanImageError
-                return@launch
-            }
-            analyzeEncoded(encoded)
-        }
-    }
-
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
-        if (bitmap != null) analyzeBitmap(bitmap)
-        else if (analysis == null && previewBitmap == null && imageUri == null) {
-            error = s.scanCameraCancelled
-        }
-    }
-
-    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) analyzeUri(uri)
-    }
-
-    LaunchedEffect(teacherAccount.tier) {
-        if (teacherAccount.hasFeature { it.textbookScan } && !cameraRequested) {
-            cameraRequested = true
-            cameraLauncher.launch(null)
-        }
-    }
+    var savedScans by remember { mutableStateOf(scanStorage.listScans()) }
+    var showSaved by remember { mutableStateOf(false) }
+    var savedMessage by remember { mutableStateOf("") }
+    var activeScanId by remember { mutableStateOf("") }
 
     val resolved = remember(analysis, lessonId, prefs) {
         resolveScanLesson(curriculum, prefs, lessonId, analysis)
@@ -185,6 +139,142 @@ fun ScanScreen(
             prefs.medium,
             prefs.getTeacherResources(),
         )
+    }
+
+    fun refreshSaved() {
+        savedScans = scanStorage.listScans()
+    }
+
+    fun loadSavedScan(saved: SavedScan) {
+        activeScanId = saved.id
+        analysis = ScanAnalysis(
+            detectedLesson = saved.detectedLesson,
+            detectedPage = "",
+            summary = saved.summary,
+            vocabulary = saved.vocabulary,
+            suggestedActions = listOf("quick_plan"),
+            actionHints = emptyMap(),
+            account = null,
+        )
+        showSaved = false
+        savedMessage = ""
+        previewBitmap = null
+        imageUri = null
+    }
+
+    fun saveCurrentScan(): String {
+        val a = analysis ?: return activeScanId
+        val id = scanStorage.saveScan(
+            lessonId = resolved.first,
+            lessonTitle = resolved.third,
+            detectedLesson = a.detectedLesson,
+            summary = a.summary,
+            vocabulary = a.vocabulary,
+        )
+        activeScanId = id
+        refreshSaved()
+        savedMessage = s.scanSaved
+        return id
+    }
+
+    fun runAnalysis(encoded: Pair<String, String>) {
+        if (encoded.first.length > MAX_SCAN_BYTES) {
+            analyzing = false
+            error = s.scanImageTooLarge
+            return
+        }
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                ScanApiClient.analyzePage(encoded.first, encoded.second, lessonId, auth.getIdToken())
+            }
+            result.onSuccess { scanResult ->
+                analysis = scanResult
+                scanResult.account?.let { onAccountUpdated(it) }
+            }.onFailure { e ->
+                error = e.message ?: s.scanError
+            }
+            analyzing = false
+        }
+    }
+
+    fun analyzeEncoded(encoded: Pair<String, String>) {
+        error = ""
+        runAnalysis(encoded)
+    }
+
+    fun analyzeBitmap(bitmap: Bitmap) {
+        previewBitmap = bitmap
+        imageUri = null
+        analysis = null
+        analyzing = true
+        error = ""
+        scope.launch {
+            val encoded = withContext(Dispatchers.IO) {
+                encodeBitmapForScan(bitmap)
+            }
+            if (encoded == null) {
+                analyzing = false
+                error = s.scanImageError
+                return@launch
+            }
+            runAnalysis(encoded)
+        }
+    }
+
+    fun analyzeUri(uri: Uri) {
+        imageUri = uri
+        previewBitmap = null
+        analysis = null
+        analyzing = true
+        error = ""
+        scope.launch {
+            val encoded = withContext(Dispatchers.IO) {
+                encodeImageUriForScan(context, uri)
+            }
+            if (encoded == null) {
+                analyzing = false
+                error = s.scanImageError
+                return@launch
+            }
+            runAnalysis(encoded)
+        }
+    }
+
+    val takePictureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        val captureFile = scanCaptureFile(context)
+        when {
+            success && captureFile.exists() && captureFile.length() > 0L -> {
+                analyzeUri(scanCaptureUri(context))
+            }
+            success -> {
+                error = s.scanImageError
+            }
+            else -> {
+                error = s.scanCameraCancelled
+            }
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            takePictureLauncher.launch(scanCaptureUri(context))
+        } else {
+            error = s.scanCameraPermission
+        }
+    }
+
+    fun openCamera() {
+        error = ""
+        when {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED -> {
+                takePictureLauncher.launch(scanCaptureUri(context))
+            }
+            else -> cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) analyzeUri(uri)
     }
 
     RegisterScaffold(
@@ -208,6 +298,60 @@ fun ScanScreen(
                 return@Column
             }
 
+            if (teacherAccount.scansRemaining == 0) {
+                InfoBannerCard(title = s.scanLimitReached, body = s.tierScansRemaining.format(0))
+                return@Column
+            }
+
+            teacherAccount.scansRemaining?.let { remaining ->
+                Text(
+                    s.tierScansRemaining.format(remaining),
+                    fontSize = 13.sp,
+                    color = PrimarySteel.copy(0.75f),
+                )
+            }
+
+            if (savedScans.isNotEmpty()) {
+                TextButton(onClick = { showSaved = !showSaved }, modifier = Modifier.fillMaxWidth()) {
+                    Text("${s.scanViewSaved} (${savedScans.size})", color = AccentTeal)
+                }
+            }
+
+            if (showSaved && savedScans.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, SeasideBorder),
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(s.scanSavedScans, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = PrimaryDark)
+                        val dateFmt = remember { SimpleDateFormat("d MMM, h:mm a", Locale.getDefault()) }
+                        savedScans.take(8).forEach { saved ->
+                            OutlinedButton(
+                                onClick = { loadSavedScan(saved) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        saved.detectedLesson.ifBlank { saved.lessonTitle }.ifBlank { s.scanResultTitle },
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp,
+                                    )
+                                    Text(dateFmt.format(Date(saved.savedAt)), fontSize = 11.sp, color = PrimarySteel)
+                                    if (saved.planLessonId != null && saved.planDay != null) {
+                                        Text(s.scanHasPlan, fontSize = 11.sp, color = AccentTeal)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (savedMessage.isNotBlank()) {
+                Text(savedMessage, color = AccentTeal, fontSize = 13.sp)
+            }
+
             if (previewBitmap == null && imageUri == null && analysis == null && !analyzing) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -221,7 +365,7 @@ fun ScanScreen(
                     ) {
                         Icon(Icons.Default.PhotoCamera, null, tint = AccentTeal, modifier = Modifier.size(48.dp))
                         Text(s.scanCameraHint, fontSize = 14.sp, color = PrimaryDark, fontWeight = FontWeight.Medium)
-                        PrimaryButton(text = s.scanOpenCamera, onClick = { cameraLauncher.launch(null) })
+                        PrimaryButton(text = s.scanOpenCamera, onClick = { openCamera() })
                         OutlinedButton(onClick = {
                             galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                         }) {
@@ -263,7 +407,7 @@ fun ScanScreen(
 
             if (error.isNotBlank()) {
                 Text(error, color = Color(0xFFC62828), fontSize = 13.sp)
-                OutlinedButton(onClick = { cameraLauncher.launch(null) }, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { openCamera() }, modifier = Modifier.fillMaxWidth()) {
                     Text(s.scanCaptureAgain)
                 }
             }
@@ -281,9 +425,28 @@ fun ScanScreen(
                 Text(s.scanNextSteps, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = PrimaryDark)
                 PrimaryButton(
                     text = "${s.scanCreatePlan} · ${s.dayLabel} $planDay",
-                    onClick = { onOpenQuickPlan(resolved.first, planDay) },
+                    onClick = {
+                        val scanId = activeScanId.ifBlank { saveCurrentScan() }
+                        onOpenQuickPlan(resolved.first, planDay, scanId)
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
+                OutlinedButton(
+                    onClick = { saveCurrentScan() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(s.scanSave)
+                }
+                val linked = activeScanId.takeIf { it.isNotBlank() }?.let { scanStorage.loadScan(it) }
+                    ?: savedScans.firstOrNull { it.lessonId == resolved.first && it.planLessonId != null }
+                if (linked?.planLessonId != null && linked.planDay != null) {
+                    OutlinedButton(
+                        onClick = { onViewPlan(linked.planLessonId, linked.planDay) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(s.scanViewPlan)
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(
                         onClick = {
@@ -303,6 +466,26 @@ fun ScanScreen(
                     }
                 }
 
+                if (a.suggestedActions.any { it.equals("assessment", ignoreCase = true) }) {
+                    OutlinedButton(
+                        onClick = {
+                            val grade = prefs.lastViewedGrade
+                            val lessons = curriculum.getLessons(grade, prefs.lastViewedSubject, prefs.medium)
+                            val group = assessmentRepo
+                                .getUnitTests(grade, prefs.medium, lessons)
+                                .firstOrNull { it.unit == resolved.second }
+                            if (group != null) {
+                                onOpenAssessment("unit", group.id, group.name)
+                            } else {
+                                onOpenAssessment("baseline", null, s.assessmentBaseline)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(s.assessmentBtn, fontSize = 12.sp)
+                    }
+                }
+
                 TlmKitHighlightCard(
                     s = s,
                     kit = unitKit,
@@ -314,7 +497,7 @@ fun ScanScreen(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(
-                        onClick = { cameraLauncher.launch(null) },
+                        onClick = { openCamera() },
                         modifier = Modifier.weight(1f),
                     ) {
                         Text(s.scanCaptureAgain, fontSize = 12.sp)
@@ -348,21 +531,4 @@ private fun resolveScanLesson(
     }
     val fallback = lessons.firstOrNull()
     return Triple(fallback?.id ?: "1.1", fallback?.unit ?: 1, fallback?.curriculumTitle ?: "")
-}
-
-private fun encodeBitmap(bitmap: Bitmap): Pair<String, String> {
-    val scaled = if (bitmap.width > 1280) {
-        val ratio = 1280f / bitmap.width
-        bitmap.scale((bitmap.width * ratio).toInt(), (bitmap.height * ratio).toInt())
-    } else bitmap
-    val out = ByteArrayOutputStream()
-    scaled.compress(Bitmap.CompressFormat.JPEG, 85, out)
-    return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP) to "image/jpeg"
-}
-
-private fun encodeImageUri(context: android.content.Context, uri: Uri): Pair<String, String> {
-    val input = context.contentResolver.openInputStream(uri) ?: throw IllegalStateException("Cannot read image")
-    val bytes = input.use { it.readBytes() }
-    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-    return encodeBitmap(bitmap)
 }

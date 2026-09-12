@@ -6,7 +6,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -17,6 +21,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tippingpoint.pedastudio.api.PlanApiClient
@@ -40,19 +45,22 @@ import com.tippingpoint.pedastudio.ui.components.OutlinedFormField
 import com.tippingpoint.pedastudio.ui.components.PlanGeneratingOverlay
 import com.tippingpoint.pedastudio.ui.components.RegisterScaffold
 import com.tippingpoint.pedastudio.ui.components.UpgradeBanner
+import com.tippingpoint.pedastudio.ui.theme.NavBg
+import com.tippingpoint.pedastudio.ui.theme.PrimaryDark
 import com.tippingpoint.pedastudio.ui.theme.PrimarySteel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.random.Random
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickPlanScreen(
     lessonId: String,
     initialDay: Int = 1,
     planningMode: String = "",
     initialReteachNotes: String = "",
+    afterUnitTest: Boolean = false,
     prefs: UserPreferences,
     curriculum: CurriculumRepository,
     planStorage: PlanStorage,
@@ -132,7 +140,7 @@ fun QuickPlanScreen(
         quote = GeneratingQuotes.randomQuote(lang)
         progress = 0
         while (generating && progress < 92) {
-            delay(320L + Random.nextLong(180))
+            delay(500L)
             progress = (progress + when {
                 progress < 25 -> 4
                 progress < 55 -> 3
@@ -161,12 +169,39 @@ fun QuickPlanScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-        RegisterScaffold(
+        if (generating) {
+            Scaffold(
+                containerColor = NavBg,
+                topBar = {
+                    TopAppBar(
+                        title = {
+                            Column {
+                                Text(s.quickPlanTitle, fontWeight = FontWeight.Bold, color = PrimaryDark, fontSize = 18.sp)
+                                Text(s.generatingPlan, fontSize = 12.sp, color = PrimarySteel.copy(alpha = 0.75f))
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                    )
+                },
+            ) { padding ->
+                Box(
+                    modifier = Modifier
+                        .padding(padding)
+                        .fillMaxSize(),
+                ) {
+                    PlanGeneratingOverlay(
+                        progress = progress,
+                        quote = quote,
+                        statusLabel = statusLabel,
+                    )
+                }
+            }
+        } else {
+            RegisterScaffold(
             title = s.quickPlanTitle,
             stepLabel = "${lesson.id} · ${lesson.curriculumTitle}",
-            buttonText = if (generating) s.generatingPlan else s.generatePlan,
-            canContinue = !generating &&
-                selectedTlms.isNotEmpty() &&
+            buttonText = s.generatePlan,
+            canContinue = selectedTlms.isNotEmpty() &&
                 hook.isNotBlank() &&
                 teaching.isNotBlank() &&
                 practice.isNotBlank() &&
@@ -174,7 +209,7 @@ fun QuickPlanScreen(
                 PlanApiClient.isConfigured &&
                 TierConfig.canGeneratePlan(teacherAccount) &&
                 TierConfig.gradeAllowed(teacherAccount, lesson.gradeNumber()),
-            onBack = if (generating) null else onBack,
+            onBack = onBack,
             onContinue = {
                 if (!PlanApiClient.isConfigured) {
                     error = s.apiNotConfigured
@@ -202,7 +237,8 @@ fun QuickPlanScreen(
                             prefs,
                             idToken,
                             mode = planningMode,
-                            reteachNotes = initialReteachNotes,
+                            reteachNotes = if (afterUnitTest || planningMode == "reteach") notes.trim() else "",
+                            afterUnitTest = afterUnitTest,
                         )
                     }
                     result.fold(
@@ -292,13 +328,6 @@ fun QuickPlanScreen(
                 Text(error, color = Color.Red, fontSize = 13.sp)
             }
         }
-
-        if (generating) {
-            PlanGeneratingOverlay(
-                progress = progress,
-                quote = quote,
-                statusLabel = statusLabel,
-            )
         }
     }
 }

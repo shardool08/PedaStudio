@@ -7,11 +7,21 @@ runConfig:
   maxInstances: 10
 
 env:
+  # Required for lesson plans, scan, worksheets
   - variable: ANTHROPIC_API_KEY
     secret: ANTHROPIC_API_KEY
     availability:
       - RUNTIME
 
+  - variable: ANTHROPIC_MODEL
+    value: claude-sonnet-4-5-20250929
+    availability:
+      - RUNTIME
+
+  # Leave PILOT_TIER unset so paid tiers work. Use admin script to grant pilot access:
+  # npm run tier:set -- --uid=USER_ID --tier=prime --days=90
+
+  # Razorpay (test keys: rzp_test_… from dashboard.razorpay.com)
   - variable: RAZORPAY_KEY_ID
     secret: RAZORPAY_KEY_ID
     availability:
@@ -20,10 +30,9 @@ env:
     secret: RAZORPAY_KEY_SECRET
     availability:
       - RUNTIME
-  - variable: NEXT_PUBLIC_RAZORPAY_KEY_ID
-    secret: RAZORPAY_KEY_ID
+  - variable: RAZORPAY_WEBHOOK_SECRET
+    secret: RAZORPAY_WEBHOOK_SECRET
     availability:
-      - BUILD
       - RUNTIME
 
   # Public Firebase web config (needed at build + runtime; .env is not uploaded)

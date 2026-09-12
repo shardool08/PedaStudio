@@ -76,7 +76,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <h3 className="mb-3 mt-8 text-sm font-semibold uppercase tracking-wide text-[#496580]/60">
-            Usage this month (all teachers)
+            Usage this week (all teachers)
           </h3>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard label="Plans generated" value={stats.usageThisMonth.plans} />

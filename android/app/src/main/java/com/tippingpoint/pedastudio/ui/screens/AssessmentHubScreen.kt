@@ -45,6 +45,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun AssessmentHubScreen(
     grade: Int,
+    subject: String,
     prefs: UserPreferences,
     curriculum: CurriculumRepository,
     assessmentRepo: AssessmentRepository,
@@ -58,15 +59,15 @@ fun AssessmentHubScreen(
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf("") }
     var hub by remember { mutableStateOf<AssessmentHubData?>(null) }
-    val localGroups = remember(grade, prefs.medium) {
-        assessmentRepo.getUnitTests(grade, prefs.medium, curriculum.getLessons(grade, "english", prefs.medium))
+    val localGroups = remember(grade, subject, prefs.medium) {
+        assessmentRepo.getUnitTests(grade, prefs.medium, curriculum.getLessons(grade, subject, prefs.medium))
     }
 
-    LaunchedEffect(grade) {
+    LaunchedEffect(grade, subject, prefs.medium) {
         loading = true
         error = ""
         val result = withContext(Dispatchers.IO) {
-            AssessmentApiClient.fetchCatalog(grade, "english", prefs.medium, auth.getIdToken())
+            AssessmentApiClient.fetchCatalog(grade, subject, prefs.medium, auth.getIdToken())
         }
         result.onSuccess {
             hub = it
@@ -105,6 +106,7 @@ fun AssessmentHubScreen(
                 title = hub?.catalog?.baselineTitle ?: s.assessmentBaseline,
                 body = hub?.catalog?.baselineDesc ?: s.assessmentBaselineDesc,
                 score = scoreFor("baseline"),
+                structuredTool = hub?.catalog?.baselineHasTool == true,
                 onOpen = { onOpenEntry("baseline", null, s.assessmentBaseline) },
             )
             AssessmentTypeCard(
@@ -125,10 +127,12 @@ fun AssessmentHubScreen(
             } ?: localGroups
 
             groups.forEach { group ->
+                val apiGroup = hub?.catalog?.unitTests?.find { it.id == group.id }
                 AssessmentTypeCard(
                     title = "${s.unitLabel} ${group.unit} · ${group.name}",
                     body = group.focus,
                     score = scoreFor("unit", group.id),
+                    structuredTool = apiGroup?.hasTool == true,
                     onOpen = { onOpenEntry("unit", group.id, group.name) },
                 )
             }
@@ -137,6 +141,7 @@ fun AssessmentHubScreen(
                 title = hub?.catalog?.endlineTitle ?: s.assessmentEndline,
                 body = hub?.catalog?.endlineDesc ?: s.assessmentEndlineDesc,
                 score = scoreFor("endline"),
+                structuredTool = hub?.catalog?.endlineHasTool == true,
                 onOpen = { onOpenEntry("endline", null, s.assessmentEndline) },
             )
         }
@@ -148,6 +153,7 @@ private fun AssessmentTypeCard(
     title: String,
     body: String,
     score: Int?,
+    structuredTool: Boolean = false,
     onOpen: (() -> Unit)?,
 ) {
     val s = LocalAppStrings.current
@@ -162,7 +168,12 @@ private fun AssessmentTypeCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(title, fontWeight = FontWeight.SemiBold, color = PrimaryDark, fontSize = 15.sp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, fontWeight = FontWeight.SemiBold, color = PrimaryDark, fontSize = 15.sp)
+                    if (structuredTool) {
+                        Text(s.assessmentStructuredBadge, fontSize = 10.sp, color = AccentTeal, fontWeight = FontWeight.Medium)
+                    }
+                }
                 score?.let {
                     Text("$it%", color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
@@ -170,7 +181,10 @@ private fun AssessmentTypeCard(
             Text(body, fontSize = 12.sp, color = PrimaryDark.copy(0.7f))
             if (onOpen != null) {
                 TextButton(onClick = onOpen) {
-                    Text(if (score == null) s.assessmentEnterScores else s.assessmentUpdateScores, color = AccentTeal)
+                    Text(
+                        if (score == null) s.assessmentOpenTool else s.assessmentUpdateScores,
+                        color = AccentTeal,
+                    )
                 }
             }
         }

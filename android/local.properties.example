@@ -1,14 +1,8 @@
-# Copy to local.properties (gitignored) and fill in your paths/keys.
-
-# Android SDK — Android Studio usually sets this automatically
-# sdk.dir=C\:\\Users\\YourName\\AppData\\Local\\Android\\Sdk
-
-# PedaStudio web API for quick-plan (required for "Plan this lesson")
-# Debug builds use local.properties; release builds use gradle.properties production URL.
-#
-# Production (default — works from anywhere):
-pedastudio.api.url=https://pedastudio-api--pedastudio-d6b2a.asia-southeast1.hosted.app
-#
-# Local dev — uncomment instead:
+# Copy to local.properties (gitignored) for local API + Razorpay testing.
+# Emulator: use 10.0.2.2 to reach the host machine's localhost:3000
 # pedastudio.api.url=http://10.0.2.2:3000
-# pedastudio.api.url=http://192.168.x.x:3000
+#
+# Physical device on same Wi‑Fi: use your PC's LAN IP, e.g.
+# pedastudio.api.url=http://192.168.1.42:3000
+#
+# Leave unset to use production API (gradle.properties pedastudio.api.url.production).
