@@ -35,7 +35,6 @@ export async function POST(req: NextRequest) {
       buildPlanPrompt(lesson, dayNum, selections || {}, teacherProfile || {}, planMode);
 
     const result = await anthropicMessages({
-      model: "claude-sonnet-4-20250514",
       max_tokens: 4096,
       messages: [{ role: "user", content: prompt }],
     });
