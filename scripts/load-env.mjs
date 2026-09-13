@@ -1,11 +1,12 @@
 import fs from "fs";
 import path from "path";
 
-/** Load .env into process.env (minimal, no dependency) */
+/** Load .env / .env.local into process.env (minimal, no dependency) */
 export function loadEnv() {
-  const envPath = path.join(process.cwd(), ".env");
-  if (!fs.existsSync(envPath)) return;
-  for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
+  for (const name of [".env", ".env.local"]) {
+    const envPath = path.join(process.cwd(), name);
+    if (!fs.existsSync(envPath)) continue;
+    for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
     const eq = trimmed.indexOf("=");
@@ -16,5 +17,6 @@ export function loadEnv() {
       val = val.slice(1, -1);
     }
     if (!process.env[key]) process.env[key] = val;
+    }
   }
 }

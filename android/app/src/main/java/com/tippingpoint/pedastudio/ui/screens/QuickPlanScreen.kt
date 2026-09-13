@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.tippingpoint.pedastudio.api.PlanApiClient
 import com.tippingpoint.pedastudio.auth.PhoneAuthController
 import com.tippingpoint.pedastudio.data.CurriculumRepository
-import com.tippingpoint.pedastudio.data.FirestoreRepository
+import com.tippingpoint.pedastudio.data.CloudSyncRepository
 import com.tippingpoint.pedastudio.data.LessonItem
 import com.tippingpoint.pedastudio.data.PlanStorage
 import com.tippingpoint.pedastudio.data.TeacherAccount
@@ -65,7 +65,7 @@ fun QuickPlanScreen(
     curriculum: CurriculumRepository,
     planStorage: PlanStorage,
     tlmCatalog: TlmResourceCatalog,
-    firestore: FirestoreRepository,
+    cloud: CloudSyncRepository,
     auth: PhoneAuthController,
     teacherAccount: TeacherAccount,
     onAccountUpdated: (TeacherAccount) -> Unit,
@@ -248,7 +248,7 @@ fun QuickPlanScreen(
                             delay(700)
                             val planJson = generated.plan.toString()
                             planStorage.savePlan(lesson.id, day, planJson, selections)
-                            firestore.pushPlan(lesson.id, day, planJson, selections, planStorage)
+                            cloud.pushPlan(lesson.id, day, planJson, selections, planStorage)
                             generated.account?.let(onAccountUpdated)
                             generating = false
                             onPlanReady(lesson.id, day)

@@ -50,13 +50,4 @@ class TlmResourceCatalog(context: Context) {
     fun imageUrlFor(id: String): String = remoteImageUrls[id].orEmpty().ifBlank { byId[id]?.imageUrl.orEmpty() }
 
     fun labelFor(id: String): String = byId[id]?.label ?: id.replace('_', ' ')
-
-    fun toFirestoreList(): List<Map<String, String>> = items.map {
-        mapOf(
-            "id" to it.id,
-            "label" to it.label,
-            "emoji" to it.emoji,
-            "imageUrl" to it.imageUrl,
-        )
-    }
 }

@@ -35,7 +35,7 @@ export default function CatalogPage() {
     <>
       <PageHeader
         title="Catalog"
-        description="Firestore catalog for TLM resources and flashcards."
+        description="Supabase catalog for TLM resources and flashcards."
       />
 
       {error && (
@@ -59,7 +59,7 @@ export default function CatalogPage() {
                   ? `Updated ${new Date(catalog.tlm.updatedAt).toLocaleDateString()}`
                   : catalog.tlm.exists
                     ? "Seeded"
-                    : "Not seeded — run npm run firebase:seed-catalog"
+                    : "Not seeded — run npm run supabase:seed-catalog"
               }
             />
             <StatCard
@@ -71,13 +71,13 @@ export default function CatalogPage() {
           <div className="mt-6 rounded-xl border border-[#D0EAE4] bg-[#F0FAF8] p-5">
             <h3 className="text-sm font-semibold text-[#496580]">Seed catalog</h3>
             <p className="mt-2 text-sm text-[#496580]/70">
-              Upload TLM and flashcard data from bundled assets to Firestore + Storage:
+              Upload TLM and flashcard data from bundled Android assets to Supabase:
             </p>
             <code className="mt-2 block rounded-lg bg-white px-3 py-2 text-xs text-[#496580]">
-              npm run firebase:seed-catalog
+              npm run supabase:seed-catalog
             </code>
             <p className="mt-3 text-xs text-[#496580]/50">
-              Requires FIREBASE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS.
+              Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
             </p>
           </div>
 

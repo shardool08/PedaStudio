@@ -26,7 +26,10 @@ Firebase Blaze is cancelled. Target stack:
 
 1. Authentication → Providers → **Phone** → Enable.
 2. For India cost control, use **MSG91** or Twilio under Auth → Phone → SMS provider (Supabase docs).
-3. Local/dev: set `ALLOW_DEV_OTP=true` and use a fixed test flow (see `lib/supabase/auth.ts`) — never enable in production.
+3. Local/dev: with no Supabase or Firebase env vars set, `lib/api-auth.ts` treats unauthenticated
+   requests as a fixed dev uid so routes stay callable. This only applies when
+   `NODE_ENV=development`. For a real OTP round trip, add a test number under
+   Auth → Phone instead.
 
 ## 3. Env files
 
@@ -44,14 +47,24 @@ Remove reliance on `FIREBASE_*` / `FIREBASE_SERVICE_ACCOUNT_JSON` once cutover i
 **Option B — VPS**  
 - Docker or Node 22 + `npm start` on Hetzner/DigitalOcean (~$5–6/mo)
 
-## 5. Android cutover (next engineering phase)
+## 5. Web sign-in (done)
 
-1. Replace Firebase Auth with Supabase phone OTP (or call your `/api/auth/*` helpers).
-2. Send `Authorization: Bearer <supabase_access_token>` to existing `/api/*` routes.
-3. Remove direct Firestore reads/writes (`FirestoreRepository`) — sync via API only.
-4. Drop `google-services` / Firebase BOM when Auth+Firestore are gone.
+`/login` signs teachers in with Supabase phone OTP (`app/(teacher)/login/page.tsx`).
+Session state comes from `lib/auth-context.tsx`, `apiFetch` in `lib/api-client.ts` attaches
+the access token, and `RequireAuth` guards teacher pages.
 
-## 6. Data from old Firebase
+`requireApiUser` accepts **Supabase** access tokens. Older Android builds that still send
+Firebase ID tokens are verified against Google's public certificates (no Admin SDK).
+
+## 6. Android cutover (done)
+
+1. Phone OTP goes to Supabase Auth (`PhoneAuthController`).
+2. The app sends `Authorization: Bearer <supabase_access_token>` to `/api/*`.
+3. Profile, plans and catalog sync through `/api/profile`, `/api/plans`, `/api/catalog`.
+4. The Firebase BOM / `google-services` plugin are gone. Put the public Supabase URL and
+   anon key in `android/gradle.properties` (`pedastudio.supabase.url` / `.anon`).
+
+## 7. Data from old Firebase
 
 If you still have Firestore data and the project is readable:
 
@@ -61,7 +74,7 @@ If you still have Firestore data and the project is readable:
 
 Clean pilot restart is OK if no real teacher data must be kept.
 
-## 7. Cost (pilot)
+## 8. Cost (pilot)
 
 | Item | Typical |
 |------|---------|
@@ -73,8 +86,12 @@ Clean pilot restart is OK if no real teacher data must be kept.
 
 ## Status in repo
 
-- [x] Postgres schema (`supabase/migrations/001_initial_schema.sql`)
+- [x] Postgres schema (`supabase/migrations/001_initial_schema.sql` + `002` + `003`)
 - [x] Supabase server client (`lib/supabase/`)
-- [ ] Wire `lib/tier-service.ts` / admin / subscription off Firestore → Supabase
-- [ ] Android Auth + remove Firestore SDK
-- [ ] Deploy API to Railway/VPS and update Android production URL
+- [x] Web phone OTP at `/login`
+- [x] Android phone OTP + profile/plan/catalog sync via the API
+- [x] Tiers, usage, assessments, admin panel on Supabase
+- [x] API on Railway (`pedastudio-production.up.railway.app`)
+- [ ] Enable **Phone** under Supabase → Authentication → Providers
+- [ ] Run `003_auth_user_trigger.sql` in the SQL Editor
+- [ ] Rebuild the Android app with `pedastudio.supabase.url` / `.anon` set

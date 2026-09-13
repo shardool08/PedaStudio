@@ -2,7 +2,6 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
-    id("com.google.gms.google-services")
 }
 
 android {
@@ -25,6 +24,10 @@ android {
 
     val localApiUrl = readProp(localProps, "pedastudio.api.url")
     val productionApiUrl = readProp(gradleProps, "pedastudio.api.url.production")
+    val supabaseUrl = readProp(localProps, "pedastudio.supabase.url")
+        .ifBlank { readProp(gradleProps, "pedastudio.supabase.url") }
+    val supabaseAnon = readProp(localProps, "pedastudio.supabase.anon")
+        .ifBlank { readProp(gradleProps, "pedastudio.supabase.anon") }
 
     defaultConfig {
         applicationId = "com.tippingpoint.PedaStudio"
@@ -38,10 +41,14 @@ android {
         debug {
             val debugUrl = localApiUrl.ifBlank { productionApiUrl }
             buildConfigField("String", "API_BASE_URL", "\"$debugUrl\"")
+            buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+            buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnon\"")
         }
         release {
             val releaseUrl = productionApiUrl.ifBlank { localApiUrl }
             buildConfigField("String", "API_BASE_URL", "\"$releaseUrl\"")
+            buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+            buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnon\"")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -82,12 +89,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
-
-    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.google.firebase:firebase-storage-ktx")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("com.razorpay:checkout:1.6.40")
 }

@@ -5,7 +5,7 @@ import { currentUsageWeek, emptyUsage, normalizeTierId } from "@/lib/tier-config
 
 /**
  * Teacher store backed by Supabase Postgres (replaces the old Firestore `users/{uid}` doc).
- * `id` is whatever uid the ID token carries — Firebase uid today, Supabase auth uuid later.
+ * `id` is the uid from the ID token (Supabase auth uuid; older Firebase uids still fit).
  */
 export interface TeacherRecord {
   id: string;

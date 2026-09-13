@@ -19,7 +19,7 @@ import com.tippingpoint.pedastudio.api.AccountApiClient
 import com.tippingpoint.pedastudio.auth.PhoneAuthController
 import com.tippingpoint.pedastudio.data.AssessmentRepository
 import com.tippingpoint.pedastudio.data.CurriculumRepository
-import com.tippingpoint.pedastudio.data.FirestoreRepository
+import com.tippingpoint.pedastudio.data.CloudSyncRepository
 import com.tippingpoint.pedastudio.data.FlashcardRepository
 import com.tippingpoint.pedastudio.data.MaharashtraRepository
 import com.tippingpoint.pedastudio.data.PlanStorage
@@ -65,7 +65,7 @@ fun PedaStudioApp(
     val flashcards = remember { FlashcardRepository(context.applicationContext) }
     val tlmCatalog = remember { TlmResourceCatalog(context.applicationContext) }
     val assessmentRepo = remember { AssessmentRepository(context.applicationContext) }
-    val firestore = remember { FirestoreRepository(tlmCatalog) }
+    val cloud = remember { CloudSyncRepository(auth) }
     val nav = rememberNavController()
     var language by remember { mutableStateOf(prefs.language) }
     var plansRevision by remember { mutableIntStateOf(0) }
@@ -76,12 +76,11 @@ fun PedaStudioApp(
     LaunchedEffect(auth.isLoggedIn) {
         if (!auth.isLoggedIn) return@LaunchedEffect
         try {
-            firestore.ensureCatalogSeeded()
-            firestore.pullProfile(prefs).onSuccess { pulled ->
+            cloud.pullProfile(prefs).onSuccess { pulled ->
                 if (pulled) language = prefs.language
             }
-            firestore.syncAllPlans(planStorage).onSuccess { plansRevision++ }
-            tlmCatalog.applyRemoteImageUrls(firestore.loadTlmImageUrls())
+            cloud.syncAllPlans(planStorage).onSuccess { plansRevision++ }
+            tlmCatalog.applyRemoteImageUrls(cloud.loadTlmImageUrls())
             val cached = prefs.loadCachedTeacherAccount()
             if (cached != null) teacherAccount = cached
             val idToken = auth.getIdToken()
@@ -146,7 +145,7 @@ fun PedaStudioApp(
                     maharashtra = maharashtra,
                     onBack = { nav.popBackStack() },
                 ) {
-                    scope.launch { firestore.pushProfile(prefs) }
+                    scope.launch { cloud.pushProfile(prefs) }
                     nav.navigate(Routes.HOME) {
                         popUpTo(Routes.REGISTER_STEP2) { inclusive = true }
                     }
@@ -182,11 +181,11 @@ fun PedaStudioApp(
                     onOpenLesson = { lessonId -> nav.navigate(Routes.lessonDetail(lessonId)) },
                     onChangeLanguage = { nav.navigate(Routes.CHANGE_LANGUAGE) },
                     onManageSubscription = { nav.navigate(Routes.subscription()) },
-                    onLessonSelected = { scope.launch { firestore.pushProfile(prefs) } },
+                    onLessonSelected = { scope.launch { cloud.pushProfile(prefs) } },
                     onDayCompleted = { lessonId, day, feedback ->
                         planStorage.completePlan(lessonId, day, feedback)
                         plansRevision++
-                        scope.launch { firestore.pushPlanMeta(lessonId, day, planStorage) }
+                        scope.launch { cloud.pushPlanMeta(lessonId, day, planStorage) }
                     },
                     onPlanStateChanged = { plansRevision++ },
                     onSignOut = {
@@ -207,7 +206,7 @@ fun PedaStudioApp(
                     maharashtra = maharashtra,
                     onBack = { nav.popBackStack() },
                     onSaved = {
-                        scope.launch { firestore.pushProfile(prefs) }
+                        scope.launch { cloud.pushProfile(prefs) }
                         nav.popBackStack()
                     },
                 )
@@ -248,7 +247,7 @@ fun PedaStudioApp(
                         prefs.language = it
                     },
                     onContinue = {
-                        scope.launch { firestore.pushProfile(prefs) }
+                        scope.launch { cloud.pushProfile(prefs) }
                         nav.popBackStack()
                     },
                     fromProfile = true,
@@ -285,7 +284,7 @@ fun PedaStudioApp(
                     curriculum = curriculum,
                     planStorage = planStorage,
                     tlmCatalog = tlmCatalog,
-                    firestore = firestore,
+                    cloud = cloud,
                     auth = auth,
                     teacherAccount = teacherAccount,
                     onAccountUpdated = { account ->
@@ -325,7 +324,7 @@ fun PedaStudioApp(
                     day = day,
                     curriculum = curriculum,
                     planStorage = planStorage,
-                    firestore = firestore,
+                    cloud = cloud,
                     tlmCatalog = tlmCatalog,
                     onBack = { nav.popBackStack() },
                     onProgressChanged = { plansRevision++ },
@@ -346,7 +345,7 @@ fun PedaStudioApp(
                     prefs = prefs,
                     curriculum = curriculum,
                     planStorage = planStorage,
-                    firestore = firestore,
+                    cloud = cloud,
                     teacherAccount = teacherAccount,
                     plansRevision = plansRevision,
                     onBack = { nav.popBackStack() },

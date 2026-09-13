@@ -25,7 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.tippingpoint.pedastudio.data.FirestoreRepository
+import com.tippingpoint.pedastudio.data.CloudSyncRepository
 import com.tippingpoint.pedastudio.data.FlashcardRepository
 import com.tippingpoint.pedastudio.i18n.LocalAppLanguage
 import com.tippingpoint.pedastudio.i18n.LocalAppStrings
@@ -41,7 +41,7 @@ import androidx.compose.foundation.BorderStroke
 fun FlashcardsScreen(
     lessonId: String,
     flashcards: FlashcardRepository,
-    firestore: FirestoreRepository,
+    cloud: CloudSyncRepository,
     onBack: () -> Unit,
 ) {
     val s = LocalAppStrings.current
@@ -49,7 +49,7 @@ fun FlashcardsScreen(
     var overlayRevision by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(lessonId) {
-        firestore.loadFlashcardImageUrls(lessonId).let { urls ->
+        cloud.loadFlashcardImageUrls(lessonId).let { urls ->
             flashcards.applyImageOverlay(lessonId, urls)
             overlayRevision++
         }

@@ -50,7 +50,7 @@ import com.tippingpoint.pedastudio.data.CurriculumRepository
 
 import com.tippingpoint.pedastudio.data.DayPlanStatus
 
-import com.tippingpoint.pedastudio.data.FirestoreRepository
+import com.tippingpoint.pedastudio.data.CloudSyncRepository
 
 import com.tippingpoint.pedastudio.data.PlanStorage
 
@@ -94,7 +94,7 @@ fun PlanViewScreen(
 
     planStorage: PlanStorage,
 
-    firestore: FirestoreRepository,
+    cloud: CloudSyncRepository,
 
     tlmCatalog: TlmResourceCatalog,
 
@@ -128,7 +128,7 @@ fun PlanViewScreen(
 
             loading = true
 
-            firestore.pullPlan(lessonId, day, planStorage).onSuccess { found ->
+            cloud.pullPlan(lessonId, day, planStorage).onSuccess { found ->
 
                 if (found) {
 
@@ -282,7 +282,7 @@ fun PlanViewScreen(
 
                 onProgressChanged()
 
-                scope.launch { firestore.pushPlanMeta(lessonId, day, planStorage) }
+                scope.launch { cloud.pushPlanMeta(lessonId, day, planStorage) }
 
             }
 

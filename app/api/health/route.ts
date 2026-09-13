@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAnthropicModelCandidates, requireEnv } from "@/lib/api-utils";
 import { allLessonsServer } from "@/lib/curriculum";
-import { isApiAuthConfigured } from "@/lib/firebase/admin";
 import { firebaseProjectId } from "@/lib/firebase/verify-id-token";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/server";
 import { getPilotTierOverride } from "@/lib/tier-config";
@@ -31,7 +30,7 @@ export async function GET() {
     lessonCount: allLessonsServer.length,
     pilotTier: getPilotTierOverride(),
     database: await databaseStatus(),
-    tokenVerification: isApiAuthConfigured() ? "firebase-admin" : "google-certs",
-    firebaseProject: firebaseProjectId(),
+    tokenVerification: "supabase",
+    firebaseFallback: firebaseProjectId(),
   });
 }

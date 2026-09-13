@@ -14,7 +14,7 @@ import com.tippingpoint.pedastudio.billing.RazorpayPaymentHandler
 import com.tippingpoint.pedastudio.ui.theme.PedaStudioTheme
 
 class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
-    private val phoneAuth = PhoneAuthController()
+    private val phoneAuth by lazy { PhoneAuthController(applicationContext) }
     lateinit var paymentHandler: RazorpayPaymentHandler
         private set
 

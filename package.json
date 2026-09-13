@@ -12,18 +12,13 @@
     "flashcards:sync": "node scripts/sync-flashcard-manifest.mjs",
     "android:curriculum": "node scripts/export-curriculum-android.mjs",
     "android:assets": "node scripts/export-curriculum-android.mjs",
-    "firebase:seed-catalog": "node scripts/seed-firebase-catalog.mjs",
-    "firebase:init-db": "node scripts/init-database.mjs",
     "apphosting:build": "next build",
-    "firebase:deploy-rules": "firebase deploy --only firestore:rules,storage",
-    "firebase:deploy-api": "firebase deploy --only \"apphosting:pedastudio-api\" --project pedastudio-d6b2a",
     "tier:set": "node scripts/set-teacher-tier.mjs",
-    "razorpay:secrets": "node scripts/set-razorpay-secrets.mjs",
-    "supabase:schema": "node scripts/apply-supabase-schema.mjs"
+    "supabase:schema": "node scripts/apply-supabase-schema.mjs",
+    "supabase:seed-catalog": "node scripts/seed-supabase-catalog.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
-    "firebase-admin": "^13.10.0",
     "next": "^15.5.25",
     "react": "19.0.1",
     "react-dom": "19.0.1"
@@ -32,7 +27,6 @@
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^20.0.0",
     "@types/react": "^19.0.0",
-    "firebase-tools": "^14.27.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.0.0"
   },

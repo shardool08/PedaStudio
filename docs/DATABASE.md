@@ -1,51 +1,18 @@
-# Firestore Database Schema
+# Database schema
 
-PedaStudio uses **Firebase Firestore** as the cloud database. TypeScript types live in `lib/schema/`.
+PedaStudio stores teacher data in **Supabase Postgres**. The live tables are created
+by `supabase/migrations/`. TypeScript types live in `lib/schema/` and
+`lib/supabase/teachers.ts`.
 
-## Collections
+| Table | Purpose |
+|-------|---------|
+| `teachers` | Profile + server-owned tier, usage, subscription |
+| `plans` | Saved lesson plans (unique teacher + lesson + day) |
+| `assessments` | Baseline / unit / endline scores |
+| `classes` | Ability groups (Max) |
+| `payments` | Razorpay receipts (server-only) |
+| `tlm_resources` | Catalog artwork URLs |
+| `flashcard_lessons` | Catalog flashcard image URLs |
 
-```
-catalog/
-  tlmResources              — public TLM resource catalog
-  flashcards/lessons/{id}   — flashcard content per lesson
-
-users/{uid}                 — teacher profile + account fields
-  plans/{lessonId_dayN}     — saved lesson plans
-  assessments/{id}          — baseline / unit / endline scores
-  classes/{classId}         — (scaffold) ability groups for Max tier
-  payments/{paymentId}      — Razorpay payment records (server-only write)
-```
-
-## Protected fields (server-only)
-
-Clients cannot write these on `users/{uid}`:
-
-- `tier`, `tierExpiresAt`
-- `usage` — `{ week, plans, worksheets, scans, ocrScans }` (resets every Monday UTC)
-- `subscription`
-
-## Setup commands
-
-```bash
-# Seed TLM + flashcard catalog
-npm run firebase:seed-catalog
-
-# Add tier/usage defaults to existing users
-npm run firebase:init-db
-
-# Deploy rules + indexes
-npm run firebase:deploy-rules
-
-# Set a teacher tier (CLI)
-npm run tier:set -- --uid=USER_ID --tier=prime --days=90
-```
-
-## Admin panel
-
-Set `ADMIN_SECRET` in `.env.local`, then visit `/admin/login`.
-
-Features: dashboard stats, teacher list, tier management, usage reset, catalog status.
-
-## Indexes
-
-Defined in `firestore.indexes.json` — deploy with `firebase deploy --only firestore:indexes`.
+The Android app never talks to the database. It calls `/api/profile`, `/api/plans`,
+`/api/catalog`, `/api/me`, and the AI routes. Auth is Supabase Phone OTP.

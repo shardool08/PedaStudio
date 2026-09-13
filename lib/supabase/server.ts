@@ -9,6 +9,14 @@ export function isSupabaseConfigured(): boolean {
   );
 }
 
+/** True when `getSupabaseAnon()` can be called — the anon key, not the service role key. */
+export function isSupabaseAnonConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim(),
+  );
+}
+
 /** Server-only client (bypasses RLS). Use in API routes. */
 export function getSupabaseAdmin(): SupabaseClient {
   if (adminClient) return adminClient;

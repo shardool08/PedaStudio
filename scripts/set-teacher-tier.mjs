@@ -1,15 +1,17 @@
 /**
- * Set a teacher subscription tier in Firestore (admin use).
+ * Set a teacher subscription tier in Supabase (admin use).
  *
- * Usage:
- *   node scripts/set-teacher-tier.mjs --uid=FIREBASE_UID --tier=prime
- *   node scripts/set-teacher-tier.mjs --uid=FIREBASE_UID --tier=prime --days=90
+ *   node scripts/set-teacher-tier.mjs --uid=TEACHER_ID --tier=prime
+ *   node scripts/set-teacher-tier.mjs --uid=TEACHER_ID --tier=prime --days=90
  *   node scripts/set-teacher-tier.mjs --all --tier=max
  *
- * Requires GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_JSON.
+ * Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env
  */
 
-import admin from "firebase-admin";
+import { createClient } from "@supabase/supabase-js";
+import { loadEnv } from "./load-env.mjs";
+
+loadEnv();
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((arg) => {
@@ -36,60 +38,34 @@ if (!["basic", "prime", "max"].includes(tier)) {
   process.exit(1);
 }
 
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (raw) {
-    admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-    return;
-  }
-  admin.initializeApp();
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+if (!url || !key) {
+  console.error("Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env");
+  process.exit(1);
 }
 
-initAdmin();
-const db = admin.firestore();
+const sb = createClient(url, key, { auth: { persistSession: false } });
 
-function tierPayload() {
-  const data = {
-    tier,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  };
-  if (days && tier !== "basic") {
-    const expires = new Date();
-    expires.setUTCDate(expires.getUTCDate() + days);
-    data.tierExpiresAt = expires;
-  } else if (tier === "basic") {
-    data.tierExpiresAt = admin.firestore.FieldValue.delete();
-  } else {
-    data.tierExpiresAt = admin.firestore.FieldValue.delete();
-  }
-  return data;
+function tierPatch() {
+  if (tier === "basic" || !days) return { tier, tier_expires_at: null };
+  const expires = new Date();
+  expires.setUTCDate(expires.getUTCDate() + days);
+  return { tier, tier_expires_at: expires.toISOString() };
 }
 
 if (allUsers) {
-  const snap = await db.collection("users").get();
-  if (snap.empty) {
-    console.log("No users found.");
-    process.exit(0);
+  const { data, error } = await sb.from("teachers").update(tierPatch()).neq("id", "").select("id");
+  if (error) {
+    console.error(error.message);
+    process.exit(1);
   }
-  const batchSize = 400;
-  let updated = 0;
-  let batch = db.batch();
-  let batchCount = 0;
-
-  for (const doc of snap.docs) {
-    batch.set(doc.ref, tierPayload(), { merge: true });
-    batchCount++;
-    updated++;
-    if (batchCount >= batchSize) {
-      await batch.commit();
-      batch = db.batch();
-      batchCount = 0;
-    }
-  }
-  if (batchCount > 0) await batch.commit();
-  console.log(`Set tier=${tier} on ${updated} user(s)${days ? ` for ${days} days` : ""}`);
+  console.log(`Set tier=${tier} on ${(data ?? []).length} teacher(s)${days ? ` for ${days} days` : ""}`);
 } else {
-  await db.collection("users").doc(uid).set(tierPayload(), { merge: true });
-  console.log(`Set users/${uid} tier=${tier}${days ? ` for ${days} days` : ""}`);
+  const { error } = await sb.from("teachers").upsert({ id: uid, ...tierPatch() }, { onConflict: "id" });
+  if (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+  console.log(`Set teachers/${uid} tier=${tier}${days ? ` for ${days} days` : ""}`);
 }

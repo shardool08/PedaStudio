@@ -6,3 +6,7 @@
 # pedastudio.api.url=http://192.168.1.42:3000
 #
 # Leave unset to use production API (gradle.properties pedastudio.api.url.production).
+#
+# Public Supabase values for phone OTP (same as NEXT_PUBLIC_* in .env):
+# pedastudio.supabase.url=https://YOUR_PROJECT.supabase.co
+# pedastudio.supabase.anon=YOUR_PUBLISHABLE_OR_ANON_KEY

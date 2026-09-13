@@ -31,7 +31,7 @@ import com.tippingpoint.pedastudio.data.CurriculumRepository
 import com.tippingpoint.pedastudio.data.DayInfo
 import com.tippingpoint.pedastudio.data.DayPlanMeta
 import com.tippingpoint.pedastudio.data.DayPlanStatus
-import com.tippingpoint.pedastudio.data.FirestoreRepository
+import com.tippingpoint.pedastudio.data.CloudSyncRepository
 import com.tippingpoint.pedastudio.data.LessonItem
 import com.tippingpoint.pedastudio.data.LessonProgressStatus
 import com.tippingpoint.pedastudio.data.NextPlanAction
@@ -62,7 +62,7 @@ fun LessonDetailScreen(
     prefs: UserPreferences,
     curriculum: CurriculumRepository,
     planStorage: PlanStorage,
-    firestore: FirestoreRepository,
+    cloud: CloudSyncRepository,
     teacherAccount: TeacherAccount,
     plansRevision: Int,
     onBack: () -> Unit,
@@ -82,7 +82,7 @@ fun LessonDetailScreen(
     fun advanceToNextLesson() {
         PlanProgressHelper.nextLessonInCurriculum(roadmapLessons, lessonId)?.let { next ->
             prefs.setCurrentLesson(prefs.lastViewedGrade, prefs.lastViewedSubject, next.id)
-            scope.launch { firestore.pushProfile(prefs) }
+            scope.launch { cloud.pushProfile(prefs) }
         }
     }
     var refreshKey by remember { mutableStateOf(0) }
@@ -122,7 +122,7 @@ fun LessonDetailScreen(
         nextAction = PlanProgressHelper.getNextAction(lessonId, day, feedback, lesson.days)
         refreshKey++
         onProgressChanged()
-        scope.launch { firestore.pushPlanMeta(lessonId, day, planStorage) }
+        scope.launch { cloud.pushPlanMeta(lessonId, day, planStorage) }
     }
 
     val dayMetas = remember(lessonId, plansRevision, refreshKey, dayRows) {
