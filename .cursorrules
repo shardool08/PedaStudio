@@ -72,3 +72,7 @@ Built with Next.js 15 + Tailwind CSS v4 + Claude API. localStorage for data (no 
 ## Pending Work
 - Grade 4-5 curriculum content verification
 - Deploy to Vercel
+- Cost: reuse similar lesson plans instead of regenerating (see note below)
+
+## Later: reuse similar lesson plans (cost)
+Do not implement unless asked. Contextualisation still matters (medium, class size, TLM, teacher choices). For the same or very similar case — same lesson + day + similar profile/selections — serve a stored plan instead of calling Claude again. That is the main per-user AI cost (~$0.03 per generate-plan). Design when building it: fingerprint lessonId, day, language, medium, class-size band, and key form choices; return a cached/sibling plan on hit; only call `/api/generate-plan` on miss. Keep reteach/practice/continue as distinct keys.

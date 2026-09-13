@@ -10,3 +10,6 @@
 # Public Supabase values for phone OTP (same as NEXT_PUBLIC_* in .env):
 # pedastudio.supabase.url=https://YOUR_PROJECT.supabase.co
 # pedastudio.supabase.anon=YOUR_PUBLISHABLE_OR_ANON_KEY
+#
+# Temporary: skip SMS (use OTP 123456). Requires ALLOW_DEV_OTP=true on Railway.
+# pedastudio.pilot.otp=true

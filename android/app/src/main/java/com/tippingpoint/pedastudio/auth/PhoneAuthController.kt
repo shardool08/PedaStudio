@@ -26,8 +26,10 @@ sealed class LoginUiState {
 }
 
 /**
- * Phone OTP against Supabase Auth. Tokens live in SharedPreferences so a teacher
- * stays signed in across launches. The API receives the access token as Bearer.
+ * Phone OTP sign-in.
+ *
+ * Pilot mode (`BuildConfig.USE_PILOT_OTP`): talks to `/api/auth/pilot-login` — no SMS provider.
+ * Production mode: Supabase Auth `/auth/v1/otp` + `/auth/v1/verify` (needs Textlocal/Twilio).
  */
 class PhoneAuthController(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -64,7 +66,14 @@ class PhoneAuthController(context: Context) {
         _state.value = LoginUiState.Sending
         scope.launch {
             try {
-                postJson("/auth/v1/otp", JSONObject().put("phone", phone))
+                if (BuildConfig.USE_PILOT_OTP) {
+                    // No SMS — OTP is the fixed pilot code from the server (default 123456).
+                    pendingPhone = phone
+                    prefs.edit().putString(KEY_PHONE, phone).apply()
+                    _state.value = LoginUiState.CodeSent
+                    return@launch
+                }
+                postSupabase("/auth/v1/otp", JSONObject().put("phone", phone))
                 pendingPhone = phone
                 prefs.edit().putString(KEY_PHONE, phone).apply()
                 _state.value = LoginUiState.CodeSent
@@ -87,11 +96,22 @@ class PhoneAuthController(context: Context) {
         _state.value = LoginUiState.Verifying
         scope.launch {
             try {
-                val body = JSONObject()
-                    .put("phone", phone)
-                    .put("token", code)
-                    .put("type", "sms")
-                val session = postJson("/auth/v1/verify", body)
+                val session = if (BuildConfig.USE_PILOT_OTP) {
+                    postApi(
+                        "/api/auth/pilot-login",
+                        JSONObject()
+                            .put("phone", phone)
+                            .put("otp", code),
+                    )
+                } else {
+                    postSupabase(
+                        "/auth/v1/verify",
+                        JSONObject()
+                            .put("phone", phone)
+                            .put("token", code)
+                            .put("type", "sms"),
+                    )
+                }
                 persistSession(session)
                 _state.value = LoginUiState.Idle
             } catch (e: Exception) {
@@ -115,7 +135,7 @@ class PhoneAuthController(context: Context) {
     private fun refreshSession(): String? {
         val refresh = prefs.getString(KEY_REFRESH, null) ?: return null
         return runCatching {
-            val session = postJson(
+            val session = postSupabase(
                 "/auth/v1/token?grant_type=refresh_token",
                 JSONObject().put("refresh_token", refresh),
             )
@@ -140,7 +160,18 @@ class PhoneAuthController(context: Context) {
             .apply()
     }
 
-    private fun postJson(path: String, body: JSONObject): JSONObject {
+    private fun postApi(path: String, body: JSONObject): JSONObject {
+        val base = BuildConfig.API_BASE_URL.trimEnd('/')
+        if (base.isBlank()) throw IllegalStateException("API URL not configured")
+        val request = Request.Builder()
+            .url("$base$path")
+            .addHeader("Content-Type", "application/json")
+            .post(body.toString().toRequestBody(JSON))
+            .build()
+        return execute(request)
+    }
+
+    private fun postSupabase(path: String, body: JSONObject): JSONObject {
         val base = BuildConfig.SUPABASE_URL.trimEnd('/')
         val key = BuildConfig.SUPABASE_ANON_KEY
         if (base.isBlank() || key.isBlank()) {
@@ -153,12 +184,18 @@ class PhoneAuthController(context: Context) {
             .addHeader("Content-Type", "application/json")
             .post(body.toString().toRequestBody(JSON))
             .build()
+        return execute(request)
+    }
+
+    private fun execute(request: Request): JSONObject {
         http.newCall(request).execute().use { response ->
             val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                val server = runCatching { JSONObject(text).optString("msg") }.getOrNull()
-                    ?.ifBlank { runCatching { JSONObject(text).optString("error_description") }.getOrNull() }
-                    ?.orEmpty()
+                val json = runCatching { JSONObject(text) }.getOrNull()
+                val server = json?.optString("error")?.takeIf { it.isNotBlank() }
+                    ?: json?.optString("msg")?.takeIf { it.isNotBlank() }
+                    ?: json?.optString("error_description")?.takeIf { it.isNotBlank() }
+                    ?: ""
                 throw IllegalStateException(server.ifBlank { "HTTP ${response.code}" })
             }
             return if (text.isBlank()) JSONObject() else JSONObject(text)
@@ -172,10 +209,15 @@ class PhoneAuthController(context: Context) {
                 "Invalid mobile number"
             message.contains("rate", true) || message.contains("too many", true) ->
                 "Too many attempts. Wait and try again."
-            message.contains("otp", true) || message.contains("token", true) ->
+            message.contains("otp", true) || message.contains("token", true) ||
+                message.contains("Invalid OTP", true) ->
                 "Invalid OTP"
+            message.contains("unsupported phone", true) || message.contains("phone provider", true) ->
+                "Phone SMS is not set up yet. Use pilot login (OTP 123456) or add Textlocal."
+            message.contains("Pilot OTP is off", true) ->
+                "Pilot OTP is off on the server. Set ALLOW_DEV_OTP=true in Railway."
             message.contains("not configured", true) ->
-                "App is missing Supabase settings. Rebuild after adding them to gradle.properties."
+                "App is missing Supabase settings. Rebuild after adding them to local.properties."
             else -> message.ifBlank { "Could not sign in. Try again." }
         }
     }

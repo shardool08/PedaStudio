@@ -28,6 +28,9 @@ android {
         .ifBlank { readProp(gradleProps, "pedastudio.supabase.url") }
     val supabaseAnon = readProp(localProps, "pedastudio.supabase.anon")
         .ifBlank { readProp(gradleProps, "pedastudio.supabase.anon") }
+    val usePilotOtp = readProp(localProps, "pedastudio.pilot.otp")
+        .ifBlank { readProp(gradleProps, "pedastudio.pilot.otp") }
+        .equals("true", ignoreCase = true)
 
     defaultConfig {
         applicationId = "com.tippingpoint.PedaStudio"
@@ -43,12 +46,14 @@ android {
             buildConfigField("String", "API_BASE_URL", "\"$debugUrl\"")
             buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
             buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnon\"")
+            buildConfigField("boolean", "USE_PILOT_OTP", "$usePilotOtp")
         }
         release {
             val releaseUrl = productionApiUrl.ifBlank { localApiUrl }
             buildConfigField("String", "API_BASE_URL", "\"$releaseUrl\"")
             buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
             buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnon\"")
+            buildConfigField("boolean", "USE_PILOT_OTP", "$usePilotOtp")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
